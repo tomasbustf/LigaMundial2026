@@ -1,0 +1,335 @@
+/**
+ * Liga Polla Mundial 2026 — Main Application
+ * Entry point, router, and event delegation
+ */
+import './styles/index.css';
+import { supabase } from './supabase.js';
+import { renderNavbar } from './components/navbar.js';
+import { renderDashboard, initFechaTabs } from './views/dashboard.js';
+import { renderLeaderboard } from './views/leaderboard.js';
+import { renderWorldCup, initWorldCupTabs } from './views/worldcup.js';
+import { renderAdmin, initAdminTabs } from './views/admin.js';
+import { renderGeneral } from './views/general.js';
+
+// ---- State ----
+let currentView = 'dashboard';
+let currentUserId = localStorage.getItem('polla_user_id') || null;
+let currentUser = null;
+let allUsers = [];
+
+const app = document.getElementById('app');
+
+// ---- Init ----
+async function init() {
+  // Load users
+  const { data: users } = await supabase
+    .from('users')
+    .select('*')
+    .order('name');
+
+  allUsers = users || [];
+
+  if (currentUserId) {
+    currentUser = allUsers.find(u => u.id === currentUserId) || null;
+    if (!currentUser) {
+      currentUserId = null;
+      localStorage.removeItem('polla_user_id');
+    }
+  }
+
+  await renderApp();
+}
+
+// ---- Render ----
+async function renderApp() {
+  // Render navbar
+  const navHtml = renderNavbar(currentView, currentUser);
+
+  // Show loading
+  app.innerHTML = navHtml + `<div class="spinner"></div>`;
+
+  // Populate user selector
+  const selector = document.getElementById('user-selector');
+  if (selector) {
+    allUsers.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = u.name;
+      if (u.id === currentUserId) opt.selected = true;
+      selector.appendChild(opt);
+    });
+  }
+
+  // Bind nav events immediately
+  bindNavEvents();
+
+  // Render view
+  let viewHtml = '';
+  try {
+    if (currentUserId === 'general') {
+      viewHtml = await renderGeneral();
+    } else {
+      switch (currentView) {
+        case 'dashboard':
+          viewHtml = await renderDashboard(currentUserId);
+          break;
+        case 'leaderboard':
+          viewHtml = await renderLeaderboard(currentUserId);
+          break;
+        case 'worldcup':
+          viewHtml = await renderWorldCup();
+          break;
+        case 'admin':
+          viewHtml = await renderAdmin(currentUserId);
+          break;
+        default:
+          viewHtml = await renderDashboard(currentUserId);
+      }
+    }
+  } catch (err) {
+    console.error('Error rendering view:', err);
+    viewHtml = `<div class="container page"><div class="empty-state"><div class="icon">⚠️</div><h3>Error al cargar</h3><p>${err.message}</p></div></div>`;
+  }
+
+  // Replace loading with content (keep navbar)
+  app.innerHTML = navHtml + viewHtml;
+
+  // Re-populate user selector after full render
+  const selectorAfter = document.getElementById('user-selector');
+  if (selectorAfter) {
+    const generalOpt = document.createElement('option');
+    generalOpt.value = 'general';
+    generalOpt.textContent = '📊 Vista General';
+    if (currentUserId === 'general') generalOpt.selected = true;
+    selectorAfter.appendChild(generalOpt);
+
+    const dividerOpt = document.createElement('option');
+    dividerOpt.disabled = true;
+    dividerOpt.textContent = '──────────';
+    selectorAfter.appendChild(dividerOpt);
+
+    allUsers.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = u.name;
+      if (u.id === currentUserId) opt.selected = true;
+      selectorAfter.appendChild(opt);
+    });
+  }
+
+  // Bind all events
+  bindNavEvents();
+  bindViewEvents();
+}
+
+// ---- Navigation Events ----
+function bindNavEvents() {
+  // Nav links
+  document.querySelectorAll('[data-view]').forEach(link => {
+    link.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const view = link.dataset.view;
+      if (view !== currentView) {
+        currentView = view;
+        await renderApp();
+      }
+    });
+  });
+
+  // User selector
+  const selector = document.getElementById('user-selector');
+  if (selector) {
+    selector.addEventListener('change', async (e) => {
+      currentUserId = e.target.value || null;
+      currentUser = allUsers.find(u => u.id === currentUserId) || null;
+      if (currentUserId) {
+        localStorage.setItem('polla_user_id', currentUserId);
+      } else {
+        localStorage.removeItem('polla_user_id');
+      }
+      await renderApp();
+    });
+  }
+}
+
+// ---- View-Specific Events ----
+function bindViewEvents() {
+  // World Cup tabs
+  if (currentView === 'worldcup') {
+    initWorldCupTabs();
+  }
+
+  // Admin tabs & events
+  if (currentView === 'admin') {
+    initAdminTabs();
+    bindAdminEvents();
+  }
+
+  // Dashboard prediction saving
+  if (currentView === 'dashboard') {
+    bindDashboardEvents();
+  }
+}
+
+// ---- Dashboard Events ----
+function bindDashboardEvents() {
+  // Initialize Fecha tabs
+  initFechaTabs();
+
+  // Save prediction buttons
+  document.querySelectorAll('.save-prediction').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const matchId = parseInt(btn.dataset.matchId);
+      const homeInput = document.querySelector(`.pred-home[data-match-id="${matchId}"]`);
+      const awayInput = document.querySelector(`.pred-away[data-match-id="${matchId}"]`);
+
+      const homeScore = parseInt(homeInput?.value);
+      const awayScore = parseInt(awayInput?.value);
+
+      if (isNaN(homeScore) || isNaN(awayScore) || homeScore < 0 || awayScore < 0) {
+        showToast('Ingresa ambos marcadores', 'error');
+        return;
+      }
+
+      btn.textContent = '...';
+      btn.disabled = true;
+
+      const { error } = await supabase
+        .from('predictions')
+        .upsert({
+          user_id: currentUserId,
+          match_id: matchId,
+          home_score: homeScore,
+          away_score: awayScore,
+        }, { onConflict: 'user_id,match_id' });
+
+      if (error) {
+        showToast(`Error: ${error.message}`, 'error');
+        btn.textContent = 'Guardar';
+        btn.disabled = false;
+      } else {
+        btn.textContent = '✓ Guardado';
+        btn.style.background = 'var(--success)';
+        btn.style.borderColor = 'var(--success)';
+        btn.disabled = false;
+        showToast('Predicción guardada', 'success');
+      }
+    });
+  });
+}
+
+// ---- Admin Events ----
+function bindAdminEvents() {
+  // Save result
+  document.querySelectorAll('.admin-save-result').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const matchId = parseInt(btn.dataset.matchId);
+      const row = btn.closest('.admin-match-row');
+      const homeScore = parseInt(row.querySelector('.admin-home-score').value);
+      const awayScore = parseInt(row.querySelector('.admin-away-score').value);
+      const isFinished = row.querySelector('.admin-finished').checked;
+
+      if (isFinished && (isNaN(homeScore) || isNaN(awayScore))) {
+        showToast('Ingresa ambos marcadores', 'error');
+        return;
+      }
+
+      const updateData = {
+        home_score: isNaN(homeScore) ? null : homeScore,
+        away_score: isNaN(awayScore) ? null : awayScore,
+        is_finished: isFinished,
+      };
+
+      const { error } = await supabase
+        .from('matches')
+        .update(updateData)
+        .eq('id', matchId);
+
+      if (error) {
+        showToast(`Error: ${error.message}`, 'error');
+      } else {
+        showToast('Resultado guardado', 'success');
+      }
+    });
+  });
+
+  // Recalculate
+  document.getElementById('btn-recalculate')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-recalculate');
+    btn.textContent = 'Calculando...';
+    btn.disabled = true;
+
+    const { error } = await supabase.rpc('recalculate_all_points');
+
+    if (error) {
+      showToast(`Error: ${error.message}`, 'error');
+    } else {
+      showToast('Puntos recalculados correctamente', 'success');
+    }
+
+    btn.textContent = 'Recalcular Puntos';
+    btn.disabled = false;
+  });
+
+  // Save scoring rule
+  document.querySelectorAll('.admin-save-rule').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ruleId = parseInt(btn.dataset.ruleId);
+      const row = btn.closest('tr');
+      const winnerPts = parseInt(row.querySelector('.rule-winner-pts').value);
+      const exactPts = parseInt(row.querySelector('.rule-exact-pts').value);
+      const multiplier = parseFloat(row.querySelector('.rule-multiplier').value);
+
+      const { error } = await supabase
+        .from('scoring_rules')
+        .update({
+          correct_winner_pts: winnerPts,
+          exact_score_pts: exactPts,
+          phase_multiplier: multiplier,
+        })
+        .eq('id', ruleId);
+
+      if (error) {
+        showToast(`Error: ${error.message}`, 'error');
+      } else {
+        showToast('Regla actualizada', 'success');
+      }
+    });
+  });
+
+  // Save team multiplier
+  document.querySelectorAll('.admin-save-multiplier').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const teamId = parseInt(btn.dataset.teamId);
+      const row = btn.closest('tr');
+      const multiplier = parseFloat(row.querySelector('.team-multiplier').value);
+
+      const { error } = await supabase
+        .from('teams')
+        .update({ champion_risk_multiplier: multiplier })
+        .eq('id', teamId);
+
+      if (error) {
+        showToast(`Error: ${error.message}`, 'error');
+      } else {
+        showToast('Multiplicador actualizado', 'success');
+      }
+    });
+  });
+}
+
+// ---- Toast Notification ----
+function showToast(message, type = 'success') {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ---- Start ----
+init();
