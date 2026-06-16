@@ -9,7 +9,7 @@ import { renderDashboard, initFechaTabs } from './views/dashboard.js';
 import { renderLeaderboard } from './views/leaderboard.js';
 import { renderWorldCup, initWorldCupTabs } from './views/worldcup.js';
 import { renderAdmin, initAdminTabs } from './views/admin.js';
-import { renderGeneral } from './views/general.js';
+import { renderGeneral, bindGeneralEvents } from './views/general.js';
 
 // ---- State ----
 let currentView = 'dashboard';
@@ -66,25 +66,25 @@ async function renderApp() {
   // Render view
   let viewHtml = '';
   try {
-    if (currentUserId === 'general') {
-      viewHtml = await renderGeneral();
-    } else {
-      switch (currentView) {
-        case 'dashboard':
+    switch (currentView) {
+      case 'dashboard':
+        if (currentUserId === 'general') {
+          viewHtml = await renderGeneral();
+        } else {
           viewHtml = await renderDashboard(currentUserId);
-          break;
-        case 'leaderboard':
-          viewHtml = await renderLeaderboard(currentUserId);
-          break;
-        case 'worldcup':
-          viewHtml = await renderWorldCup();
-          break;
-        case 'admin':
-          viewHtml = await renderAdmin(currentUserId);
-          break;
-        default:
-          viewHtml = await renderDashboard(currentUserId);
-      }
+        }
+        break;
+      case 'leaderboard':
+        viewHtml = await renderLeaderboard(currentUserId);
+        break;
+      case 'worldcup':
+        viewHtml = await renderWorldCup();
+        break;
+      case 'admin':
+        viewHtml = await renderAdmin(currentUserId);
+        break;
+      default:
+        viewHtml = currentUserId === 'general' ? await renderGeneral() : await renderDashboard(currentUserId);
     }
   } catch (err) {
     console.error('Error rendering view:', err);
@@ -154,6 +154,10 @@ function bindNavEvents() {
 
 // ---- View-Specific Events ----
 function bindViewEvents() {
+  if (currentUserId === 'general' && (currentView === 'dashboard' || currentView === undefined)) {
+    bindGeneralEvents();
+  }
+
   // World Cup tabs
   if (currentView === 'worldcup') {
     initWorldCupTabs();

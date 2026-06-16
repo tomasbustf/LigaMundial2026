@@ -35,7 +35,7 @@ export async function renderGeneral() {
   });
 
   return `
-    <div class="container page" style="max-width: 1400px;">
+    <div class="container page" style="max-width: 98%;">
       <div class="page-header">
         <h1>📊 Vista General</h1>
         <span class="subtitle">Todas las predicciones al estilo Excel</span>
@@ -82,10 +82,8 @@ export async function renderGeneral() {
                     </td>
                     ${users.map(u => {
                       const p = predMap[m.id]?.[u.id];
-                      if (!p) return `<td style="text-align: center; color: var(--light); font-size: 0.75rem;">-</td>`;
-                      
                       let badgeStyle = '';
-                      if (m.is_finished) {
+                      if (m.is_finished && p && p.points_earned !== undefined) {
                         if (p.points_earned >= 5) badgeStyle = 'background: #dcfce7; color: #166534; font-weight:700; border-radius: 4px;'; // Exacto (Verde)
                         else if (p.points_earned > 0) badgeStyle = 'background: #fef3c7; color: #92400e; font-weight:600; border-radius: 4px;'; // Ganador (Amarillo)
                         else badgeStyle = 'color: var(--light);'; // Nada
@@ -93,10 +91,12 @@ export async function renderGeneral() {
 
                       return `
                         <td style="text-align: center;">
-                          <div style="padding: 0.25rem; ${badgeStyle}">
-                            ${p.home_score} - ${p.away_score}
+                          <div style="display:flex; justify-content:center; gap:0.2rem; padding: 0.25rem; ${badgeStyle}">
+                            <input type="number" min="0" class="gen-pred-input" data-match-id="${m.id}" data-user-id="${u.id}" data-team="home" value="${p ? p.home_score : ''}" style="width:28px; height:24px; text-align:center; font-size:0.8rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.5); outline:none; transition:all 0.2s;">
+                            <span style="display:flex; align-items:center;">-</span>
+                            <input type="number" min="0" class="gen-pred-input" data-match-id="${m.id}" data-user-id="${u.id}" data-team="away" value="${p ? p.away_score : ''}" style="width:28px; height:24px; text-align:center; font-size:0.8rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.5); outline:none; transition:all 0.2s;">
                           </div>
-                          ${m.is_finished && p.points_earned > 0 ? `<div style="font-size:0.6rem; margin-top:0.15rem; color:var(--medium);">+${p.points_earned}</div>` : ''}
+                          ${m.is_finished && p && p.points_earned > 0 ? `<div style="font-size:0.6rem; margin-top:0.15rem; color:var(--medium);">+${p.points_earned} pts</div>` : ''}
                         </td>
                       `;
                     }).join('')}
@@ -109,4 +109,52 @@ export async function renderGeneral() {
       </div>
     </div>
   `;
+}
+
+export function bindGeneralEvents() {
+  document.querySelectorAll('.gen-pred-input').forEach(input => {
+    input.addEventListener('focus', (e) => {
+      e.target.style.border = '1px solid var(--black)';
+      e.target.style.background = 'var(--white)';
+    });
+    
+    input.addEventListener('blur', (e) => {
+      e.target.style.border = '1px solid transparent';
+      e.target.style.background = 'rgba(255,255,255,0.5)';
+    });
+
+    input.addEventListener('change', async (e) => {
+      const matchId = parseInt(e.target.dataset.matchId);
+      const userId = e.target.dataset.userId;
+      
+      const row = e.target.closest('td');
+      const homeInput = row.querySelector('[data-team="home"]');
+      const awayInput = row.querySelector('[data-team="away"]');
+      
+      const homeScore = parseInt(homeInput.value);
+      const awayScore = parseInt(awayInput.value);
+      
+      if (isNaN(homeScore) || isNaN(awayScore)) {
+        return; // wait until both are filled
+      }
+      
+      const { error } = await supabase
+        .from('predictions')
+        .upsert({
+          user_id: userId,
+          match_id: matchId,
+          home_score: homeScore,
+          away_score: awayScore,
+        }, { onConflict: 'user_id,match_id' });
+        
+      if (!error) {
+        homeInput.style.background = '#dcfce7'; // green flash
+        awayInput.style.background = '#dcfce7';
+        setTimeout(() => {
+          homeInput.style.background = 'rgba(255,255,255,0.5)';
+          awayInput.style.background = 'rgba(255,255,255,0.5)';
+        }, 800);
+      }
+    });
+  });
 }
