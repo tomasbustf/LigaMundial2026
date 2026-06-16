@@ -17,6 +17,7 @@ export function renderNavbar(currentView, currentUser) {
           <li><a href="#" data-view="leaderboard" class="${currentView === 'leaderboard' ? 'active' : ''}">🏆 Tops</a></li>
           <li><a href="#" data-view="worldcup" class="${currentView === 'worldcup' ? 'active' : ''}">🌎 Mundial</a></li>
           ${currentUser?.is_admin ? `<li><a href="#" data-view="admin" class="${currentView === 'admin' ? 'active' : ''}">⚙️ Admin</a></li>` : ''}
+          <li style="margin-left: 1rem;"><button id="nav-recalculate" class="btn btn-sm" style="padding: 0.35rem 0.75rem;">🔄 Recalcular Puntos</button></li>
         </ul>
         <div class="navbar-user">
           ${avatar}

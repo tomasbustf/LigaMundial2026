@@ -42,14 +42,14 @@ export async function renderGeneral() {
       </div>
       
       <div class="card" style="padding: 0; overflow: hidden;">
-        <div class="table-wrap">
+        <div class="table-wrap" style="max-height: 80vh; overflow-y: auto; position: relative;">
           <table class="general-table">
             <thead>
               <tr>
-                <th style="min-width: 250px; position: sticky; left: 0; background: var(--bg-subtle); z-index: 10;">Partido</th>
-                <th style="min-width: 80px; text-align: center;">Real</th>
+                <th style="min-width: 250px; position: sticky; top: 0; left: 0; background: var(--bg-subtle); z-index: 30; box-shadow: 1px 1px 0 var(--border);">Partido</th>
+                <th style="min-width: 80px; text-align: center; position: sticky; top: 0; background: var(--bg-subtle); z-index: 20; box-shadow: 0 1px 0 var(--border);">Real</th>
                 ${users.map(u => `
-                  <th style="text-align: center; min-width: 80px;">
+                  <th style="text-align: center; min-width: 80px; position: sticky; top: 0; background: var(--bg-subtle); z-index: 20; box-shadow: 0 1px 0 var(--border);">
                     <div style="display:flex; flex-direction:column; align-items:center; gap:0.25rem;">
                       <div class="user-avatar" style="background:${u.avatar_color}; width:24px; height:24px; font-size:0.6rem;">${u.name.charAt(0)}</div>
                       <span style="font-size: 0.7rem; font-weight: 600;">${u.name}</span>
@@ -77,8 +77,12 @@ export async function renderGeneral() {
                         </div>
                       </div>
                     </td>
-                    <td style="text-align: center; font-weight: 700; background: var(--bg-subtle);">
-                      ${realScore}
+                    <td style="text-align: center; background: var(--bg-subtle);">
+                      <div style="display:flex; justify-content:center; gap:0.2rem;">
+                        <input type="number" min="0" class="gen-real-input" data-match-id="${m.id}" data-team="home" value="${m.home_score !== null ? m.home_score : ''}" placeholder="-" style="width:28px; height:24px; text-align:center; font-weight:700; font-size:0.85rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.8); outline:none; transition:all 0.2s;">
+                        <span style="display:flex; align-items:center; font-weight:700;">-</span>
+                        <input type="number" min="0" class="gen-real-input" data-match-id="${m.id}" data-team="away" value="${m.away_score !== null ? m.away_score : ''}" placeholder="-" style="width:28px; height:24px; text-align:center; font-weight:700; font-size:0.85rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.8); outline:none; transition:all 0.2s;">
+                      </div>
                     </td>
                     ${users.map(u => {
                       const p = predMap[m.id]?.[u.id];
@@ -153,6 +157,48 @@ export function bindGeneralEvents() {
         setTimeout(() => {
           homeInput.style.background = 'rgba(255,255,255,0.5)';
           awayInput.style.background = 'rgba(255,255,255,0.5)';
+        }, 800);
+      }
+    });
+  });
+  document.querySelectorAll('.gen-real-input').forEach(input => {
+    input.addEventListener('focus', (e) => {
+      e.target.style.border = '1px solid var(--black)';
+      e.target.style.background = 'var(--white)';
+    });
+    
+    input.addEventListener('blur', (e) => {
+      e.target.style.border = '1px solid transparent';
+      e.target.style.background = 'rgba(255,255,255,0.8)';
+    });
+
+    input.addEventListener('change', async (e) => {
+      const matchId = parseInt(e.target.dataset.matchId);
+      const row = e.target.closest('td');
+      const homeInput = row.querySelector('[data-team="home"]');
+      const awayInput = row.querySelector('[data-team="away"]');
+      
+      const homeScore = parseInt(homeInput.value);
+      const awayScore = parseInt(awayInput.value);
+      
+      const isComplete = !isNaN(homeScore) && !isNaN(awayScore);
+      
+      // Update the match in supabase
+      const { error } = await supabase
+        .from('matches')
+        .update({
+          home_score: isComplete ? homeScore : null,
+          away_score: isComplete ? awayScore : null,
+          is_finished: false // Keep it false so it stays editable, or user can toggle later
+        })
+        .eq('id', matchId);
+        
+      if (!error) {
+        homeInput.style.background = '#fef3c7'; // yellow flash
+        awayInput.style.background = '#fef3c7';
+        setTimeout(() => {
+          homeInput.style.background = 'rgba(255,255,255,0.8)';
+          awayInput.style.background = 'rgba(255,255,255,0.8)';
         }, 800);
       }
     });

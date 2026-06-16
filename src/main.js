@@ -5,7 +5,7 @@
 import './styles/index.css';
 import { supabase } from './supabase.js';
 import { renderNavbar } from './components/navbar.js';
-import { renderDashboard, initFechaTabs } from './views/dashboard.js';
+import { renderDashboard } from './views/dashboard.js';
 import { renderLeaderboard } from './views/leaderboard.js';
 import { renderWorldCup, initWorldCupTabs } from './views/worldcup.js';
 import { renderAdmin, initAdminTabs } from './views/admin.js';
@@ -13,7 +13,7 @@ import { renderGeneral, bindGeneralEvents } from './views/general.js';
 
 // ---- State ----
 let currentView = 'dashboard';
-let currentUserId = localStorage.getItem('polla_user_id') || null;
+let currentUserId = localStorage.getItem('polla_user_id') || 'general';
 let currentUser = null;
 let allUsers = [];
 
@@ -140,14 +140,30 @@ function bindNavEvents() {
   const selector = document.getElementById('user-selector');
   if (selector) {
     selector.addEventListener('change', async (e) => {
-      currentUserId = e.target.value || null;
+      currentUserId = e.target.value || 'general';
       currentUser = allUsers.find(u => u.id === currentUserId) || null;
-      if (currentUserId) {
+      if (currentUserId && currentUserId !== 'general') {
         localStorage.setItem('polla_user_id', currentUserId);
       } else {
         localStorage.removeItem('polla_user_id');
       }
       await renderApp();
+    });
+  }
+
+  // Recalculate button
+  const recalcBtn = document.getElementById('nav-recalculate');
+  if (recalcBtn) {
+    recalcBtn.addEventListener('click', async () => {
+      recalcBtn.textContent = '...';
+      recalcBtn.disabled = true;
+      const { error } = await supabase.rpc('recalculate_all_points');
+      if (error) {
+        showToast(`Error: ${error.message}`, 'error');
+      } else {
+        showToast('Puntos actualizados en vivo', 'success');
+        await renderApp();
+      }
     });
   }
 }
@@ -177,10 +193,7 @@ function bindViewEvents() {
 
 // ---- Dashboard Events ----
 function bindDashboardEvents() {
-  // Initialize Fecha tabs
-  initFechaTabs();
-
-  // Save prediction buttons
+  // Check if save prediction buttons exist, bind them if they do
   document.querySelectorAll('.save-prediction').forEach(btn => {
     btn.addEventListener('click', async () => {
       const matchId = parseInt(btn.dataset.matchId);
