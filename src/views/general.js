@@ -4,13 +4,28 @@
 import { supabase } from '../supabase.js';
 
 export async function renderGeneral() {
-  // Fetch all users
-  const { data: users } = await supabase
+  const { data: fetchedUsers } = await supabase
     .from('users')
     .select('id, name, avatar_color')
     .order('name');
 
-  if (!users || users.length === 0) return `<div class="container page">Sin usuarios</div>`;
+  if (!fetchedUsers || fetchedUsers.length === 0) return `<div class="container page">Sin usuarios</div>`;
+
+  // Custom sort: Tomas & Ukid first, ChatGPT & Simon last
+  const users = fetchedUsers.sort((a, b) => {
+    const getPrio = (name) => {
+      const n = name.toLowerCase();
+      if (n.includes('tomás') || n.includes('tomas')) return 1;
+      if (n.includes('ukid')) return 2;
+      if (n.includes('simón') || n.includes('simon')) return 100;
+      if (n.includes('chat gpt')) return 101;
+      return 50; // Others in the middle
+    };
+    const pA = getPrio(a.name);
+    const pB = getPrio(b.name);
+    if (pA !== pB) return pA - pB;
+    return a.name.localeCompare(b.name);
+  });
 
   // Fetch all matches
   const { data: matches } = await supabase
@@ -69,7 +84,15 @@ export async function renderGeneral() {
                   <tr>
                     <td style="position: sticky; left: 0; background: var(--white); z-index: 10; border-right: 1px solid var(--border);">
                       <div style="display:flex; flex-direction:column; gap: 0.2rem;">
-                        <span style="font-size:0.65rem; color:var(--light); font-weight:600; letter-spacing:0.05em;">#${m.match_number} · ${m.group_stage_round || m.phase}</span>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                          <span style="font-size:0.65rem; color:var(--light); font-weight:600; letter-spacing:0.05em;">#${m.match_number} · ${m.group_stage_round || m.phase}</span>
+                          <button class="btn-toggle-finish" data-match-id="${m.id}" data-finished="${m.is_finished}" style="background:none; border:none; cursor:pointer; padding:0; opacity:0.8; transition:opacity 0.2s;" title="Cambiar estado del partido">
+                            ${m.is_finished 
+                              ? `<span style="font-size:0.65rem; color:#166534; background:#dcfce7; padding:2px 6px; border-radius:10px; font-weight:bold;">✅ Terminado</span>`
+                              : `<span style="font-size:0.65rem; color:var(--light); background:var(--bg-subtle); padding:2px 6px; border-radius:10px; font-weight:bold;">⏳ En juego</span>`
+                            }
+                          </button>
+                        </div>
                         <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.85rem; font-weight:500;">
                           <span style="text-align:right; flex:1;">${m.home_team.name} <span class="flag">${m.home_team.flag_emoji}</span></span>
                           <span style="padding: 0 0.5rem; color: var(--light);">vs</span>
@@ -200,6 +223,37 @@ export function bindGeneralEvents() {
           homeInput.style.background = 'rgba(255,255,255,0.8)';
           awayInput.style.background = 'rgba(255,255,255,0.8)';
         }, 800);
+      }
+    });
+  });
+
+  // Toggle finish state
+  document.querySelectorAll('.btn-toggle-finish').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const button = e.currentTarget;
+      const matchId = parseInt(button.dataset.matchId);
+      const isFinished = button.dataset.finished === 'true';
+      const newState = !isFinished;
+      
+      button.style.opacity = '0.5';
+      button.style.pointerEvents = 'none';
+
+      const { error } = await supabase
+        .from('matches')
+        .update({ is_finished: newState })
+        .eq('id', matchId);
+
+      if (!error) {
+        // Trigger a global refresh so points update properly with the new state
+        window.dispatchEvent(new CustomEvent('polla:recalc'));
+        // Or simply trigger a render if the window event isn't hooked up, but let's click the recalc button programmatically
+        const recalcBtn = document.getElementById('nav-recalculate');
+        if (recalcBtn) {
+          recalcBtn.click();
+        }
+      } else {
+        button.style.opacity = '1';
+        button.style.pointerEvents = 'auto';
       }
     });
   });

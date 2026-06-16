@@ -13,7 +13,7 @@ import { renderGeneral, bindGeneralEvents } from './views/general.js';
 
 // ---- State ----
 let currentView = 'dashboard';
-let currentUserId = localStorage.getItem('polla_user_id') || 'general';
+let currentUserId = 'general'; // Always default to General View
 let currentUser = null;
 let allUsers = [];
 
@@ -22,12 +22,25 @@ const app = document.getElementById('app');
 // ---- Init ----
 async function init() {
   // Load users
-  const { data: users } = await supabase
+  const { data: fetchedUsers } = await supabase
     .from('users')
     .select('*')
     .order('name');
 
-  allUsers = users || [];
+  allUsers = fetchedUsers?.sort((a, b) => {
+    const getPrio = (name) => {
+      const n = name.toLowerCase();
+      if (n.includes('tomás') || n.includes('tomas')) return 1;
+      if (n.includes('ukid')) return 2;
+      if (n.includes('simón') || n.includes('simon')) return 100;
+      if (n.includes('chat gpt') || n.includes('chatgpt')) return 101;
+      return 50;
+    };
+    const pA = getPrio(a.name);
+    const pB = getPrio(b.name);
+    if (pA !== pB) return pA - pB;
+    return a.name.localeCompare(b.name);
+  }) || [];
 
   if (currentUserId) {
     currentUser = allUsers.find(u => u.id === currentUserId) || null;
@@ -142,11 +155,6 @@ function bindNavEvents() {
     selector.addEventListener('change', async (e) => {
       currentUserId = e.target.value || 'general';
       currentUser = allUsers.find(u => u.id === currentUserId) || null;
-      if (currentUserId && currentUserId !== 'general') {
-        localStorage.setItem('polla_user_id', currentUserId);
-      } else {
-        localStorage.removeItem('polla_user_id');
-      }
       await renderApp();
     });
   }

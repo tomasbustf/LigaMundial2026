@@ -24,7 +24,6 @@ export function renderNavbar(currentView, currentUser) {
           <select id="user-selector">
             <option value="general">📊 Vista General</option>
             <option disabled>──────────</option>
-            <option value="" ${!currentUser ? 'selected' : ''}>Seleccionar usuario</option>
           </select>
         </div>
       </div>
