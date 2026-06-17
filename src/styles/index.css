@@ -1013,3 +1013,105 @@ tbody tr.highlight {
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
 }
+
+/* === Match Status Badges === */
+.match-status-badge {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: bold;
+  display: inline-block;
+  transition: all 150ms ease;
+}
+
+.match-status-badge.status-por-jugar {
+  color: var(--light);
+  background: var(--bg-subtle);
+}
+
+.match-status-badge.status-en-juego {
+  color: #991b1b;
+  background: #fee2e2;
+  animation: pulse-live 2s ease-in-out infinite;
+}
+
+.match-status-badge.status-terminado {
+  color: #166534;
+  background: #dcfce7;
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* === Prediction Cell Color Coding === */
+.pred-cell {
+  border-radius: 4px;
+  transition: background 300ms ease;
+}
+
+.pred-cell.pred-exact {
+  background: #dcfce7 !important;
+  outline: 2px solid #22c55e;
+  outline-offset: -1px;
+}
+
+.pred-cell.pred-exact input {
+  color: #166534 !important;
+  font-weight: 700 !important;
+}
+
+.pred-cell.pred-winner {
+  background: #fef3c7 !important;
+  outline: 2px solid #f59e0b;
+  outline-offset: -1px;
+}
+
+.pred-cell.pred-winner input {
+  color: #92400e !important;
+  font-weight: 600 !important;
+}
+
+.pred-cell.pred-miss {
+  background: #fee2e2 !important;
+  outline: 2px solid #ef4444;
+  outline-offset: -1px;
+}
+
+.pred-cell.pred-miss input {
+  color: #991b1b !important;
+}
+
+/* === Match Row States === */
+.match-row-en-juego td {
+  background-color: rgba(254, 226, 226, 0.08) !important;
+}
+
+.match-row-en-juego td:first-child {
+  border-left: 3px solid #ef4444;
+}
+
+.match-row-terminado {
+  opacity: 0.85;
+}
+
+.match-row-terminado td:first-child {
+  border-left: 3px solid #22c55e;
+}
+
+/* === Disabled inputs in locked matches === */
+.gen-pred-input:disabled,
+.gen-real-input:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+}
+
+.btn-cycle-status {
+  cursor: pointer;
+}
+
+.btn-cycle-status:hover .match-status-badge {
+  filter: brightness(0.95);
+  transform: scale(1.05);
+}

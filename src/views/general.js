@@ -1,7 +1,10 @@
 /**
  * Vista General — Matrix view of all participants and predictions
+ * Supports 3 match states: por_jugar, en_juego, terminado
+ * Color coding: Red (miss), Yellow (correct winner), Green (exact score)
  */
 import { supabase } from '../supabase.js';
+import { calculatePoints, getPointType } from '../scoring.js';
 
 export async function renderGeneral() {
   const { data: fetchedUsers } = await supabase
@@ -49,6 +52,57 @@ export async function renderGeneral() {
     predMap[p.match_id][p.user_id] = p;
   });
 
+  // Helper: get status config
+  function getStatusConfig(status) {
+    switch (status) {
+      case 'en_juego':
+        return {
+          label: '🔴 En Juego',
+          cssClass: 'status-en-juego',
+          nextStatus: 'terminado',
+        };
+      case 'terminado':
+        return {
+          label: '✅ Terminado',
+          cssClass: 'status-terminado',
+          nextStatus: 'por_jugar',
+        };
+      default: // por_jugar
+        return {
+          label: '⏳ Por Jugar',
+          cssClass: 'status-por-jugar',
+          nextStatus: 'en_juego',
+        };
+    }
+  }
+
+  // Helper: compute live points for a prediction against current match score
+  function computeLivePoints(pred, match) {
+    if (!pred || pred.home_score === null || pred.away_score === null) return null;
+    if (match.home_score === null || match.away_score === null) return null;
+    return calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase);
+  }
+
+  // Helper: determine color badge style for a prediction cell
+  function getPredCellStyle(match, pred) {
+    const status = match.status || 'por_jugar';
+    
+    // Only color-code for en_juego or terminado when scores exist
+    if (status === 'por_jugar') return '';
+    if (!pred || pred.home_score === null || pred.away_score === null) return '';
+    if (match.home_score === null || match.away_score === null) return '';
+
+    const pts = calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase);
+    const pointType = getPointType(pts, match.phase);
+    
+    if (pointType === 'exact') return 'pred-exact';      // Green
+    if (pointType === 'winner') return 'pred-winner';     // Yellow
+    return 'pred-miss';                                    // Red
+  }
+
+  const isPredDisabled = (status) => status === 'en_juego' || status === 'terminado';
+  const isRealDisabled = (status) => status === 'terminado';
+
   return `
     <div class="container page" style="max-width: 98%;">
       <div class="page-header">
@@ -78,19 +132,19 @@ export async function renderGeneral() {
                 const isDefined = m.home_team && m.away_team;
                 if (!isDefined) return '';
 
-                const realScore = m.is_finished ? `${m.home_score} - ${m.away_score}` : '-';
+                const status = m.status || 'por_jugar';
+                const statusCfg = getStatusConfig(status);
+                const predLocked = isPredDisabled(status);
+                const realLocked = isRealDisabled(status);
                 
                 return `
-                  <tr>
+                  <tr class="match-row-${status}">
                     <td style="position: sticky; left: 0; background: var(--white); z-index: 10; border-right: 1px solid var(--border);">
                       <div style="display:flex; flex-direction:column; gap: 0.2rem;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                           <span style="font-size:0.65rem; color:var(--light); font-weight:600; letter-spacing:0.05em;">#${m.match_number} · ${m.group_stage_round || m.phase}</span>
-                          <button class="btn-toggle-finish" data-match-id="${m.id}" data-finished="${m.is_finished}" style="background:none; border:none; cursor:pointer; padding:0; opacity:0.8; transition:opacity 0.2s;" title="Cambiar estado del partido">
-                            ${m.is_finished 
-                              ? `<span style="font-size:0.65rem; color:#166534; background:#dcfce7; padding:2px 6px; border-radius:10px; font-weight:bold;">✅ Terminado</span>`
-                              : `<span style="font-size:0.65rem; color:var(--light); background:var(--bg-subtle); padding:2px 6px; border-radius:10px; font-weight:bold;">⏳ En juego</span>`
-                            }
+                          <button class="btn-cycle-status ${statusCfg.cssClass}" data-match-id="${m.id}" data-status="${status}" style="background:none; border:none; cursor:pointer; padding:0; opacity:0.9; transition:opacity 0.2s;" title="Cambiar estado del partido">
+                            <span class="match-status-badge ${statusCfg.cssClass}">${statusCfg.label}</span>
                           </button>
                         </div>
                         <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.85rem; font-weight:500;">
@@ -102,28 +156,32 @@ export async function renderGeneral() {
                     </td>
                     <td style="text-align: center; background: var(--bg-subtle);">
                       <div style="display:flex; justify-content:center; gap:0.2rem;">
-                        <input type="number" min="0" class="gen-real-input" data-match-id="${m.id}" data-team="home" value="${m.home_score !== null ? m.home_score : ''}" placeholder="-" style="width:28px; height:24px; text-align:center; font-weight:700; font-size:0.85rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.8); outline:none; transition:all 0.2s;">
+                        <input type="number" min="0" class="gen-real-input" data-match-id="${m.id}" data-team="home" value="${m.home_score !== null ? m.home_score : ''}" placeholder="-" ${realLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-weight:700; font-size:0.85rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.8); outline:none; transition:all 0.2s; ${realLocked ? 'opacity:0.6; cursor:not-allowed;' : ''}">
                         <span style="display:flex; align-items:center; font-weight:700;">-</span>
-                        <input type="number" min="0" class="gen-real-input" data-match-id="${m.id}" data-team="away" value="${m.away_score !== null ? m.away_score : ''}" placeholder="-" style="width:28px; height:24px; text-align:center; font-weight:700; font-size:0.85rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.8); outline:none; transition:all 0.2s;">
+                        <input type="number" min="0" class="gen-real-input" data-match-id="${m.id}" data-team="away" value="${m.away_score !== null ? m.away_score : ''}" placeholder="-" ${realLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-weight:700; font-size:0.85rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.8); outline:none; transition:all 0.2s; ${realLocked ? 'opacity:0.6; cursor:not-allowed;' : ''}">
                       </div>
                     </td>
                     ${users.map(u => {
                       const p = predMap[m.id]?.[u.id];
-                      let badgeStyle = '';
-                      if (m.is_finished && p && p.points_earned !== undefined) {
-                        if (p.points_earned >= 5) badgeStyle = 'background: #dcfce7; color: #166534; font-weight:700; border-radius: 4px;'; // Exacto (Verde)
-                        else if (p.points_earned > 0) badgeStyle = 'background: #fef3c7; color: #92400e; font-weight:600; border-radius: 4px;'; // Ganador (Amarillo)
-                        else badgeStyle = 'color: var(--light);'; // Nada
+                      const cellClass = getPredCellStyle(m, p);
+                      
+                      // Compute live/final points
+                      let pointsDisplay = '';
+                      if ((status === 'en_juego' || status === 'terminado') && p) {
+                        const pts = computeLivePoints(p, m);
+                        if (pts !== null && pts > 0) {
+                          pointsDisplay = `<div style="font-size:0.6rem; margin-top:0.15rem; color:var(--medium);">+${pts} pts</div>`;
+                        }
                       }
 
                       return `
                         <td style="text-align: center;">
-                          <div style="display:flex; justify-content:center; gap:0.2rem; padding: 0.25rem; ${badgeStyle}">
-                            <input type="number" min="0" class="gen-pred-input" data-match-id="${m.id}" data-user-id="${u.id}" data-team="home" value="${p ? p.home_score : ''}" style="width:28px; height:24px; text-align:center; font-size:0.8rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.5); outline:none; transition:all 0.2s;">
+                          <div class="pred-cell ${cellClass}" style="display:flex; justify-content:center; gap:0.2rem; padding: 0.25rem;">
+                            <input type="number" min="0" class="gen-pred-input" data-match-id="${m.id}" data-user-id="${u.id}" data-team="home" value="${p ? p.home_score : ''}" ${predLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-size:0.8rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.5); outline:none; transition:all 0.2s; ${predLocked ? 'opacity:0.7; cursor:not-allowed;' : ''}">
                             <span style="display:flex; align-items:center;">-</span>
-                            <input type="number" min="0" class="gen-pred-input" data-match-id="${m.id}" data-user-id="${u.id}" data-team="away" value="${p ? p.away_score : ''}" style="width:28px; height:24px; text-align:center; font-size:0.8rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.5); outline:none; transition:all 0.2s;">
+                            <input type="number" min="0" class="gen-pred-input" data-match-id="${m.id}" data-user-id="${u.id}" data-team="away" value="${p ? p.away_score : ''}" ${predLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-size:0.8rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.5); outline:none; transition:all 0.2s; ${predLocked ? 'opacity:0.7; cursor:not-allowed;' : ''}">
                           </div>
-                          ${m.is_finished && p && p.points_earned > 0 ? `<div style="font-size:0.6rem; margin-top:0.15rem; color:var(--medium);">+${p.points_earned} pts</div>` : ''}
+                          ${pointsDisplay}
                         </td>
                       `;
                     }).join('')}
@@ -139,7 +197,8 @@ export async function renderGeneral() {
 }
 
 export function bindGeneralEvents() {
-  document.querySelectorAll('.gen-pred-input').forEach(input => {
+  // Prediction inputs — only active for por_jugar
+  document.querySelectorAll('.gen-pred-input:not([disabled])').forEach(input => {
     input.addEventListener('focus', (e) => {
       e.target.style.border = '1px solid var(--black)';
       e.target.style.background = 'var(--white)';
@@ -184,7 +243,9 @@ export function bindGeneralEvents() {
       }
     });
   });
-  document.querySelectorAll('.gen-real-input').forEach(input => {
+
+  // Real score inputs — only active for por_jugar and en_juego
+  document.querySelectorAll('.gen-real-input:not([disabled])').forEach(input => {
     input.addEventListener('focus', (e) => {
       e.target.style.border = '1px solid var(--black)';
       e.target.style.background = 'var(--white)';
@@ -212,7 +273,6 @@ export function bindGeneralEvents() {
         .update({
           home_score: isComplete ? homeScore : null,
           away_score: isComplete ? awayScore : null,
-          is_finished: false // Keep it false so it stays editable, or user can toggle later
         })
         .eq('id', matchId);
         
@@ -227,29 +287,38 @@ export function bindGeneralEvents() {
     });
   });
 
-  // Toggle finish state
-  document.querySelectorAll('.btn-toggle-finish').forEach(btn => {
+  // Cycle status: por_jugar -> en_juego -> terminado -> por_jugar
+  document.querySelectorAll('.btn-cycle-status').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const button = e.currentTarget;
       const matchId = parseInt(button.dataset.matchId);
-      const isFinished = button.dataset.finished === 'true';
-      const newState = !isFinished;
+      const currentStatus = button.dataset.status;
+      
+      const statusCycle = {
+        'por_jugar': 'en_juego',
+        'en_juego': 'terminado',
+        'terminado': 'por_jugar',
+      };
+      const newStatus = statusCycle[currentStatus] || 'por_jugar';
+
+      // Also update is_finished for backwards compatibility
+      const isFinished = newStatus === 'terminado';
       
       button.style.opacity = '0.5';
       button.style.pointerEvents = 'none';
 
       const { error } = await supabase
         .from('matches')
-        .update({ is_finished: newState })
+        .update({ status: newStatus, is_finished: isFinished })
         .eq('id', matchId);
 
       if (!error) {
-        // Trigger a global refresh so points update properly with the new state
-        window.dispatchEvent(new CustomEvent('polla:recalc'));
-        // Or simply trigger a render if the window event isn't hooked up, but let's click the recalc button programmatically
+        // Recalculate points and refresh
         const recalcBtn = document.getElementById('nav-recalculate');
         if (recalcBtn) {
           recalcBtn.click();
+        } else {
+          window.dispatchEvent(new CustomEvent('polla:recalc'));
         }
       } else {
         button.style.opacity = '1';

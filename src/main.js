@@ -42,10 +42,10 @@ async function init() {
     return a.name.localeCompare(b.name);
   }) || [];
 
-  if (currentUserId) {
+  if (currentUserId && currentUserId !== 'general') {
     currentUser = allUsers.find(u => u.id === currentUserId) || null;
     if (!currentUser) {
-      currentUserId = null;
+      currentUserId = 'general'; // Fall back to general view
       localStorage.removeItem('polla_user_id');
     }
   }
@@ -61,9 +61,12 @@ async function renderApp() {
   // Show loading
   app.innerHTML = navHtml + `<div class="spinner"></div>`;
 
-  // Populate user selector
+  // Populate user selector during loading
   const selector = document.getElementById('user-selector');
   if (selector) {
+    if (currentUserId === 'general') {
+      selector.value = 'general';
+    }
     allUsers.forEach(u => {
       const opt = document.createElement('option');
       opt.value = u.id;
@@ -107,19 +110,13 @@ async function renderApp() {
   // Replace loading with content (keep navbar)
   app.innerHTML = navHtml + viewHtml;
 
-  // Re-populate user selector after full render
+  // Re-populate user selector after full render (navbar already includes Vista General + divider)
   const selectorAfter = document.getElementById('user-selector');
   if (selectorAfter) {
-    const generalOpt = document.createElement('option');
-    generalOpt.value = 'general';
-    generalOpt.textContent = '📊 Vista General';
-    if (currentUserId === 'general') generalOpt.selected = true;
-    selectorAfter.appendChild(generalOpt);
-
-    const dividerOpt = document.createElement('option');
-    dividerOpt.disabled = true;
-    dividerOpt.textContent = '──────────';
-    selectorAfter.appendChild(dividerOpt);
+    // Set the general option as selected if needed
+    if (currentUserId === 'general') {
+      selectorAfter.value = 'general';
+    }
 
     allUsers.forEach(u => {
       const opt = document.createElement('option');
