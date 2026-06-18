@@ -10,6 +10,7 @@ import { renderLeaderboard } from './views/leaderboard.js';
 import { renderWorldCup, initWorldCupTabs } from './views/worldcup.js';
 import { renderAdmin, initAdminTabs } from './views/admin.js';
 import { renderGeneral, bindGeneralEvents } from './views/general.js';
+import { initPointsChart } from './components/charts.js';
 
 // ---- State ----
 let currentView = 'dashboard';
@@ -177,6 +178,11 @@ function bindNavEvents() {
 function bindViewEvents() {
   if (currentUserId === 'general' && (currentView === 'dashboard' || currentView === undefined)) {
     bindGeneralEvents();
+  }
+
+  // Leaderboard chart
+  if (currentView === 'leaderboard') {
+    initPointsChart();
   }
 
   // World Cup tabs

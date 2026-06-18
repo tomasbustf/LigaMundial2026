@@ -2,6 +2,7 @@
  * Leaderboard View — Full ranking table with breakdowns
  */
 import { supabase } from '../supabase.js';
+import { renderPointsChart } from '../components/charts.js';
 
 export async function renderLeaderboard(currentUserId) {
   const { data: leaderboard } = await supabase
@@ -95,6 +96,8 @@ export async function renderLeaderboard(currentUserId) {
           <div class="detail">jugadores activos</div>
         </div>
       </div>
+
+      ${renderPointsChart()}
 
       <div class="card">
         <div class="table-wrap">

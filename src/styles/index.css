@@ -1115,3 +1115,26 @@ tbody tr.highlight {
   filter: brightness(0.95);
   transform: scale(1.05);
 }
+
+/* === Points Evolution Chart === */
+.chart-card {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+}
+
+.chart-card .card-header {
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+}
+
+.chart-container {
+  position: relative;
+  height: 380px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .chart-container {
+    height: 280px;
+  }
+}
