@@ -78,6 +78,11 @@ export async function renderAdmin(userId) {
                     <option value="Alargue" ${m.mode === 'Alargue' ? 'selected' : ''}>Alargue</option>
                     <option value="Penales" ${m.mode === 'Penales' ? 'selected' : ''}>Penales</option>
                   </select>
+                  <select class="admin-advancing" style="margin-left:0.5rem; font-size:0.8rem; padding:2px; border-radius:4px; border:1px solid var(--border); display: ${m.mode === 'Penales' ? 'inline-block' : 'none'};">
+                    <option value="">Ganador penales...</option>
+                    <option value="${m.home_team_id}" ${m.advancing_team_id === m.home_team_id ? 'selected' : ''}>${m.home_team?.name}</option>
+                    <option value="${m.away_team_id}" ${m.advancing_team_id === m.away_team_id ? 'selected' : ''}>${m.away_team?.name}</option>
+                  </select>
                 `;
               }
               return `

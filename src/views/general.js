@@ -43,7 +43,7 @@ export async function renderGeneral() {
   // Fetch all predictions
   const { data: predictions } = await supabase
     .from('predictions')
-    .select('user_id, match_id, home_score, away_score, points_earned, mode');
+    .select('user_id, match_id, home_score, away_score, points_earned, mode, advancing_team_id');
 
   // Create lookup dictionary predMap[matchId][userId]
   const predMap = {};
@@ -80,7 +80,7 @@ export async function renderGeneral() {
   function computeLivePoints(pred, match) {
     if (!pred || pred.home_score === null || pred.away_score === null) return null;
     if (match.home_score === null || match.away_score === null) return null;
-    return calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase, pred.mode, match.mode);
+    return calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase, pred.mode, match.mode, pred.advancing_team_id, match.advancing_team_id);
   }
 
   // Helper: determine color badge style for a prediction cell
@@ -92,7 +92,7 @@ export async function renderGeneral() {
     if (!pred || pred.home_score === null || pred.away_score === null) return '';
     if (match.home_score === null || match.away_score === null) return '';
 
-    const pts = calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase, pred.mode, match.mode);
+    const pts = calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase, pred.mode, match.mode, pred.advancing_team_id, match.advancing_team_id);
     const pointType = getPointType(pts, match.phase);
     
     if (pointType === 'exact') return 'pred-exact';      // Green
@@ -124,6 +124,11 @@ export async function renderGeneral() {
             <option value="90 minutos" ${m.mode === '90 minutos' ? 'selected' : ''}>90 mins</option>
             <option value="Alargue" ${m.mode === 'Alargue' ? 'selected' : ''}>Alargue</option>
             <option value="Penales" ${m.mode === 'Penales' ? 'selected' : ''}>Penales</option>
+          </select>
+          <select class="gen-real-advancing" data-match-id="${m.id}" ${realLocked ? 'disabled' : ''} style="font-size:0.7rem; width:100%; margin-top:4px; padding:2px; border:1px solid #ccc; border-radius:4px; background:rgba(255,255,255,0.8); display: ${m.mode === 'Penales' ? 'block' : 'none'};">
+            <option value="">Ganador penales...</option>
+            <option value="${m.home_team_id}" ${m.advancing_team_id === m.home_team_id ? 'selected' : ''}>${m.home_team.name}</option>
+            <option value="${m.away_team_id}" ${m.advancing_team_id === m.away_team_id ? 'selected' : ''}>${m.away_team.name}</option>
           </select>
         `;
       }
@@ -175,6 +180,11 @@ export async function renderGeneral() {
                   <option value="90 minutos" ${p?.mode === '90 minutos' ? 'selected' : ''}>90 mins</option>
                   <option value="Alargue" ${p?.mode === 'Alargue' ? 'selected' : ''}>Alargue</option>
                   <option value="Penales" ${p?.mode === 'Penales' ? 'selected' : ''}>Penales</option>
+                </select>
+                <select class="gen-pred-advancing" data-match-id="${m.id}" data-user-id="${u.id}" ${predLocked ? 'disabled' : ''} style="font-size:0.65rem; width:100%; margin-top:4px; padding:2px; border:1px solid #ccc; border-radius:4px; background:rgba(255,255,255,0.5); display: ${p?.mode === 'Penales' ? 'block' : 'none'};">
+                  <option value="">Ganador penales...</option>
+                  <option value="${m.home_team_id}" ${p?.advancing_team_id === m.home_team_id ? 'selected' : ''}>${m.home_team.name}</option>
+                  <option value="${m.away_team_id}" ${p?.advancing_team_id === m.away_team_id ? 'selected' : ''}>${m.away_team.name}</option>
                 </select>
               `;
             }
@@ -251,7 +261,7 @@ export function bindGeneralEvents() {
     });
   });
 
-  const savePrediction = async (userId, matchId, homeScore, awayScore, mode) => {
+  const savePrediction = async (userId, matchId, homeScore, awayScore, mode, advancingTeamId) => {
     if (isNaN(homeScore) || isNaN(awayScore)) return null;
     
     // Validaciones
@@ -270,6 +280,9 @@ export function bindGeneralEvents() {
     if (mode !== undefined && mode !== null) {
       payload.mode = mode;
     }
+    if (advancingTeamId !== undefined) {
+      payload.advancing_team_id = advancingTeamId ? parseInt(advancingTeamId) : null;
+    }
 
     return await supabase
       .from('predictions')
@@ -281,47 +294,67 @@ export function bindGeneralEvents() {
     const homeInput = row.querySelector('[data-team="home"]');
     const awayInput = row.querySelector('[data-team="away"]');
     const modeSelect = row.querySelector('.' + prefix + '-mode');
-    return { homeInput, awayInput, modeSelect };
+    const advSelect = row.querySelector('.' + prefix + '-advancing');
+    return { homeInput, awayInput, modeSelect, advSelect };
   };
 
 
   // Prediction inputs
-  document.querySelectorAll('.gen-pred-input:not([disabled]), .gen-pred-mode:not([disabled])').forEach(input => {
+  document.querySelectorAll('.gen-pred-input:not([disabled]), .gen-pred-mode:not([disabled]), .gen-pred-advancing:not([disabled])').forEach(input => {
     input.addEventListener('change', async (e) => {
       const matchId = parseInt(e.target.dataset.matchId);
       const userId = e.target.dataset.userId;
       
-      const { homeInput, awayInput, modeSelect } = getRowInputs(e, 'gen-pred');
+      const { homeInput, awayInput, modeSelect, advSelect } = getRowInputs(e, 'gen-pred');
+      
+      if (e.target.classList.contains('gen-pred-mode')) {
+        if (advSelect) advSelect.style.display = e.target.value === 'Penales' ? 'block' : 'none';
+        if (e.target.value !== 'Penales' && advSelect) {
+          advSelect.value = '';
+        }
+      }
+      
       const homeScore = parseInt(homeInput.value);
       const awayScore = parseInt(awayInput.value);
       const mode = modeSelect ? modeSelect.value : null;
+      const advancingTeamId = advSelect ? advSelect.value : null;
       
       if (isNaN(homeScore) || isNaN(awayScore)) return;
       if (modeSelect && mode === "") return;
       
-      const { error } = await savePrediction(userId, matchId, homeScore, awayScore, mode);
+      const { error } = await savePrediction(userId, matchId, homeScore, awayScore, mode, advancingTeamId);
       if (!error) {
         homeInput.style.background = '#dcfce7'; 
         awayInput.style.background = '#dcfce7';
         if (modeSelect) modeSelect.style.background = '#dcfce7';
+        if (advSelect && mode === 'Penales') advSelect.style.background = '#dcfce7';
         setTimeout(() => {
           homeInput.style.background = 'rgba(255,255,255,0.5)';
           awayInput.style.background = 'rgba(255,255,255,0.5)';
           if (modeSelect) modeSelect.style.background = 'rgba(255,255,255,0.5)';
+          if (advSelect) advSelect.style.background = 'rgba(255,255,255,0.5)';
         }, 800);
       }
     });
   });
 
   // Real score inputs
-  document.querySelectorAll('.gen-real-input:not([disabled]), .gen-real-mode:not([disabled])').forEach(input => {
+  document.querySelectorAll('.gen-real-input:not([disabled]), .gen-real-mode:not([disabled]), .gen-real-advancing:not([disabled])').forEach(input => {
     input.addEventListener('change', async (e) => {
       const matchId = parseInt(e.target.dataset.matchId);
-      const { homeInput, awayInput, modeSelect } = getRowInputs(e, 'gen-real');
+      const { homeInput, awayInput, modeSelect, advSelect } = getRowInputs(e, 'gen-real');
+      
+      if (e.target.classList.contains('gen-real-mode')) {
+        if (advSelect) advSelect.style.display = e.target.value === 'Penales' ? 'block' : 'none';
+        if (e.target.value !== 'Penales' && advSelect) {
+          advSelect.value = '';
+        }
+      }
       
       const homeScore = parseInt(homeInput.value);
       const awayScore = parseInt(awayInput.value);
       const mode = modeSelect ? modeSelect.value : null;
+      const advancingTeamId = advSelect ? advSelect.value : null;
       
       const isComplete = !isNaN(homeScore) && !isNaN(awayScore);
       
@@ -331,6 +364,9 @@ export function bindGeneralEvents() {
       };
       if (modeSelect) {
         updateData.mode = mode || null;
+      }
+      if (advSelect !== null) {
+        updateData.advancing_team_id = advancingTeamId ? parseInt(advancingTeamId) : null;
       }
       
       const { error } = await supabase
@@ -342,10 +378,12 @@ export function bindGeneralEvents() {
         homeInput.style.background = '#fef3c7'; 
         awayInput.style.background = '#fef3c7';
         if (modeSelect) modeSelect.style.background = '#fef3c7';
+        if (advSelect && mode === 'Penales') advSelect.style.background = '#fef3c7';
         setTimeout(() => {
           homeInput.style.background = 'rgba(255,255,255,0.8)';
           awayInput.style.background = 'rgba(255,255,255,0.8)';
           if (modeSelect) modeSelect.style.background = 'rgba(255,255,255,0.8)';
+          if (advSelect) advSelect.style.background = 'rgba(255,255,255,0.8)';
         }, 800);
       }
     });

@@ -248,6 +248,20 @@ function bindDashboardEvents() {
 
 // ---- Admin Events ----
 function bindAdminEvents() {
+  // Toggle advancing team dropdown
+  document.querySelectorAll('.admin-mode').forEach(select => {
+    select.addEventListener('change', (e) => {
+      const row = e.target.closest('.admin-match-row');
+      const advSelect = row.querySelector('.admin-advancing');
+      if (advSelect) {
+        advSelect.style.display = e.target.value === 'Penales' ? 'inline-block' : 'none';
+        if (e.target.value !== 'Penales') {
+          advSelect.value = '';
+        }
+      }
+    });
+  });
+
   // Save result
   document.querySelectorAll('.admin-save-result').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -258,6 +272,8 @@ function bindAdminEvents() {
       const isFinished = row.querySelector('.admin-finished').checked;
       const modeSelect = row.querySelector('.admin-mode');
       const mode = modeSelect ? modeSelect.value : null;
+      const advSelect = row.querySelector('.admin-advancing');
+      const advancingTeamId = advSelect ? advSelect.value : null;
 
       if (isFinished && (isNaN(homeScore) || isNaN(awayScore))) {
         showToast('Ingresa ambos marcadores', 'error');
@@ -272,6 +288,10 @@ function bindAdminEvents() {
       
       if (modeSelect) {
         updateData.mode = mode || null;
+      }
+      
+      if (advSelect !== null) {
+        updateData.advancing_team_id = advancingTeamId ? parseInt(advancingTeamId) : null;
       }
 
       const { error } = await supabase
