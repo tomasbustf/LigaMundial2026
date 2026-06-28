@@ -36,12 +36,13 @@ export function calculatePoints(predHome, predAway, realHome, realAway, phase, p
 
   if (predWinner === realWinner) {
     pts += BASE_POINTS.correct_winner; // 2 pts
+    
     if (predHome === realHome && predAway === realAway) {
       pts += (BASE_POINTS.exact_score - BASE_POINTS.correct_winner); // +3 pts
-      
-      if (isKnockout && predMode && predMode === realMode) {
-        pts += 2; // +2 pts
-      }
+    }
+
+    if (isKnockout && predMode && predMode === realMode) {
+      pts += 2; // +2 pts
     }
   }
 
@@ -57,8 +58,10 @@ export function getPointType(points, phase) {
   
   const p7 = Math.floor(7 * multiplier);
   const p5 = Math.floor(BASE_POINTS.exact_score * multiplier);
+  const p4 = Math.floor(4 * multiplier);
   
-  if (points === p5 || points === p7) return 'exact';
+  if (points === p7 || points === p5) return 'exact';
+  if (points === p4) return 'mode';
   return 'winner';
 }
 

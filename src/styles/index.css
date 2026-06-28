@@ -1062,6 +1062,17 @@ tbody tr.highlight {
   font-weight: 700 !important;
 }
 
+.pred-cell.pred-mode {
+  background: #fce7f3 !important;
+  outline: 2px solid #ec4899;
+  outline-offset: -1px;
+}
+
+.pred-cell.pred-mode input {
+  color: #9d174d !important;
+  font-weight: 600 !important;
+}
+
 .pred-cell.pred-winner {
   background: #fef3c7 !important;
   outline: 2px solid #f59e0b;

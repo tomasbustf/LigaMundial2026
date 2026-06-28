@@ -96,6 +96,7 @@ export async function renderGeneral() {
     const pointType = getPointType(pts, match.phase);
     
     if (pointType === 'exact') return 'pred-exact';      // Green
+    if (pointType === 'mode') return 'pred-mode';        // Pink
     if (pointType === 'winner') return 'pred-winner';     // Yellow
     return 'pred-miss';                                    // Red
   }
