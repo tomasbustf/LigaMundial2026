@@ -67,14 +67,28 @@ export async function renderAdmin(userId) {
             <button class="btn btn-primary" id="btn-recalculate">Recalcular Puntos</button>
           </div>
           <div class="table-wrap">
-            ${matches?.map(m => `
+            ${matches?.map(m => {
+              const isKnockout = m.phase !== 'Grupos';
+              let modeSelect = '';
+              if (isKnockout) {
+                modeSelect = `
+                  <select class="admin-mode" style="margin-left:0.5rem; font-size:0.8rem; padding:2px; border-radius:4px; border:1px solid var(--border);">
+                    <option value="">Modo...</option>
+                    <option value="90 minutos" ${m.mode === '90 minutos' ? 'selected' : ''}>90 mins</option>
+                    <option value="Alargue" ${m.mode === 'Alargue' ? 'selected' : ''}>Alargue</option>
+                    <option value="Penales" ${m.mode === 'Penales' ? 'selected' : ''}>Penales</option>
+                  </select>
+                `;
+              }
+              return `
               <div class="admin-match-row" data-match-id="${m.id}">
                 <span class="match-num">#${m.match_number}</span>
                 <span style="font-weight:500">${m.home_team?.flag_emoji || ''} ${m.home_team?.name || 'TBD'}</span>
-                <div class="admin-score-input">
+                <div class="admin-score-input" style="display:flex; align-items:center;">
                   <input type="number" min="0" max="20" class="admin-home-score" value="${m.home_score ?? ''}" placeholder="–">
-                  <span style="color:var(--light)">–</span>
+                  <span style="color:var(--light); margin:0 4px;">–</span>
                   <input type="number" min="0" max="20" class="admin-away-score" value="${m.away_score ?? ''}" placeholder="–">
+                  ${modeSelect}
                 </div>
                 <span style="font-weight:500;text-align:right">${m.away_team?.name || 'TBD'} ${m.away_team?.flag_emoji || ''}</span>
                 <div>
@@ -85,7 +99,7 @@ export async function renderAdmin(userId) {
                 </div>
                 <button class="btn btn-sm admin-save-result" data-match-id="${m.id}">Guardar</button>
               </div>
-            `).join('') || '<div class="empty-state">No hay partidos con equipos definidos</div>'}
+            `}).join('') || '<div class="empty-state">No hay partidos con equipos definidos</div>'}
           </div>
         </div>
       </div>

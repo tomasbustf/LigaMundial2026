@@ -256,6 +256,8 @@ function bindAdminEvents() {
       const homeScore = parseInt(row.querySelector('.admin-home-score').value);
       const awayScore = parseInt(row.querySelector('.admin-away-score').value);
       const isFinished = row.querySelector('.admin-finished').checked;
+      const modeSelect = row.querySelector('.admin-mode');
+      const mode = modeSelect ? modeSelect.value : null;
 
       if (isFinished && (isNaN(homeScore) || isNaN(awayScore))) {
         showToast('Ingresa ambos marcadores', 'error');
@@ -267,6 +269,10 @@ function bindAdminEvents() {
         away_score: isNaN(awayScore) ? null : awayScore,
         is_finished: isFinished,
       };
+      
+      if (modeSelect) {
+        updateData.mode = mode || null;
+      }
 
       const { error } = await supabase
         .from('matches')

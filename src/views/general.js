@@ -43,7 +43,7 @@ export async function renderGeneral() {
   // Fetch all predictions
   const { data: predictions } = await supabase
     .from('predictions')
-    .select('user_id, match_id, home_score, away_score, points_earned');
+    .select('user_id, match_id, home_score, away_score, points_earned, mode');
 
   // Create lookup dictionary predMap[matchId][userId]
   const predMap = {};
@@ -80,7 +80,7 @@ export async function renderGeneral() {
   function computeLivePoints(pred, match) {
     if (!pred || pred.home_score === null || pred.away_score === null) return null;
     if (match.home_score === null || match.away_score === null) return null;
-    return calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase);
+    return calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase, pred.mode, match.mode);
   }
 
   // Helper: determine color badge style for a prediction cell
@@ -92,7 +92,7 @@ export async function renderGeneral() {
     if (!pred || pred.home_score === null || pred.away_score === null) return '';
     if (match.home_score === null || match.away_score === null) return '';
 
-    const pts = calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase);
+    const pts = calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase, pred.mode, match.mode);
     const pointType = getPointType(pts, match.phase);
     
     if (pointType === 'exact') return 'pred-exact';      // Green
@@ -103,11 +103,111 @@ export async function renderGeneral() {
   const isPredDisabled = (status) => status === 'en_juego' || status === 'terminado';
   const isRealDisabled = (status) => status === 'terminado';
 
+  const groupMatches = matches.filter(m => m.phase === 'Grupos');
+  const knockoutMatches = matches.filter(m => m.phase !== 'Grupos');
+
+  function renderTableRows(matchList, isKnockout = false) {
+    return matchList.map(m => {
+      const isDefined = m.home_team && m.away_team;
+      if (!isDefined) return '';
+
+      const status = m.status || 'por_jugar';
+      const statusCfg = getStatusConfig(status);
+      const predLocked = isPredDisabled(status);
+      const realLocked = isRealDisabled(status);
+      
+      let realModeSelect = '';
+      if (isKnockout) {
+        realModeSelect = `
+          <select class="gen-real-mode" data-match-id="${m.id}" ${realLocked ? 'disabled' : ''} style="font-size:0.7rem; width:100%; margin-top:4px; padding:2px; border:1px solid #ccc; border-radius:4px; background:rgba(255,255,255,0.8);">
+            <option value="">Modo...</option>
+            <option value="90 minutos" ${m.mode === '90 minutos' ? 'selected' : ''}>90 mins</option>
+            <option value="Alargue" ${m.mode === 'Alargue' ? 'selected' : ''}>Alargue</option>
+            <option value="Penales" ${m.mode === 'Penales' ? 'selected' : ''}>Penales</option>
+          </select>
+        `;
+      }
+      
+      return `
+        <tr class="match-row-${status}">
+          <td style="position: sticky; left: 0; background: var(--white); z-index: 10; border-right: 1px solid var(--border);">
+            <div style="display:flex; flex-direction:column; gap: 0.2rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.65rem; color:var(--light); font-weight:600; letter-spacing:0.05em;">#${m.match_number} · ${m.group_stage_round || m.phase}</span>
+                <button class="btn-cycle-status ${statusCfg.cssClass}" data-match-id="${m.id}" data-status="${status}" style="background:none; border:none; cursor:pointer; padding:0; opacity:0.9; transition:opacity 0.2s;" title="Cambiar estado del partido">
+                  <span class="match-status-badge ${statusCfg.cssClass}">${statusCfg.label}</span>
+                </button>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.85rem; font-weight:500;">
+                <span style="text-align:right; flex:1;">${m.home_team.name} <span class="flag">${m.home_team.flag_emoji}</span></span>
+                <span style="padding: 0 0.5rem; color: var(--light);">vs</span>
+                <span style="flex:1;"><span class="flag">${m.away_team.flag_emoji}</span> ${m.away_team.name}</span>
+              </div>
+            </div>
+          </td>
+          <td style="text-align: center; background: var(--bg-subtle);">
+            <div style="display:flex; flex-direction:column; align-items:center;">
+              <div style="display:flex; justify-content:center; gap:0.2rem;">
+                <input type="number" min="0" class="gen-real-input" data-match-id="${m.id}" data-team="home" value="${m.home_score !== null ? m.home_score : ''}" placeholder="-" ${realLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-weight:700; font-size:0.85rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.8); outline:none; transition:all 0.2s; ${realLocked ? 'opacity:0.6; cursor:not-allowed;' : ''}">
+                <span style="display:flex; align-items:center; font-weight:700;">-</span>
+                <input type="number" min="0" class="gen-real-input" data-match-id="${m.id}" data-team="away" value="${m.away_score !== null ? m.away_score : ''}" placeholder="-" ${realLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-weight:700; font-size:0.85rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.8); outline:none; transition:all 0.2s; ${realLocked ? 'opacity:0.6; cursor:not-allowed;' : ''}">
+              </div>
+              ${realModeSelect}
+            </div>
+          </td>
+          ${users.map(u => {
+            const p = predMap[m.id]?.[u.id];
+            const cellClass = getPredCellStyle(m, p);
+            
+            let pointsDisplay = '';
+            if ((status === 'en_juego' || status === 'terminado') && p) {
+              const pts = computeLivePoints(p, m);
+              if (pts !== null && pts > 0) {
+                pointsDisplay = `<div style="font-size:0.6rem; margin-top:0.15rem; color:var(--medium);">+${pts} pts</div>`;
+              }
+            }
+
+            let predModeSelect = '';
+            if (isKnockout) {
+              predModeSelect = `
+                <select class="gen-pred-mode" data-match-id="${m.id}" data-user-id="${u.id}" ${predLocked ? 'disabled' : ''} style="font-size:0.65rem; width:100%; margin-top:4px; padding:2px; border:1px solid #ccc; border-radius:4px; background:rgba(255,255,255,0.5);">
+                  <option value="">Modo...</option>
+                  <option value="90 minutos" ${p?.mode === '90 minutos' ? 'selected' : ''}>90 mins</option>
+                  <option value="Alargue" ${p?.mode === 'Alargue' ? 'selected' : ''}>Alargue</option>
+                  <option value="Penales" ${p?.mode === 'Penales' ? 'selected' : ''}>Penales</option>
+                </select>
+              `;
+            }
+
+            return `
+              <td style="text-align: center;">
+                <div class="pred-cell ${cellClass}" style="display:flex; flex-direction:column; align-items:center; padding: 0.25rem;">
+                  <div style="display:flex; justify-content:center; gap:0.2rem;">
+                    <input type="number" min="0" class="gen-pred-input" data-match-id="${m.id}" data-user-id="${u.id}" data-team="home" value="${p ? p.home_score : ''}" ${predLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-size:0.8rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.5); outline:none; transition:all 0.2s; ${predLocked ? 'opacity:0.7; cursor:not-allowed;' : ''}">
+                    <span style="display:flex; align-items:center;">-</span>
+                    <input type="number" min="0" class="gen-pred-input" data-match-id="${m.id}" data-user-id="${u.id}" data-team="away" value="${p ? p.away_score : ''}" ${predLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-size:0.8rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.5); outline:none; transition:all 0.2s; ${predLocked ? 'opacity:0.7; cursor:not-allowed;' : ''}">
+                  </div>
+                  ${predModeSelect}
+                </div>
+                ${pointsDisplay}
+              </td>
+            `;
+          }).join('')}
+        </tr>
+      `;
+    }).join('');
+  }
+
   return `
     <div class="container page" style="max-width: 98%;">
       <div class="page-header">
         <h1>📊 Vista General</h1>
         <span class="subtitle">Todas las predicciones al estilo Excel</span>
+      </div>
+
+      <div class="tabs" id="general-tabs" style="margin-bottom: 1rem;">
+        <button class="tab active" data-tab="grupos">Fase de Grupos</button>
+        <button class="tab" data-tab="eliminatorias">Fase Eliminatoria</button>
       </div>
       
       <div class="card" style="padding: 0; overflow: hidden;">
@@ -127,67 +227,11 @@ export async function renderGeneral() {
                 `).join('')}
               </tr>
             </thead>
-            <tbody>
-              ${matches.map(m => {
-                const isDefined = m.home_team && m.away_team;
-                if (!isDefined) return '';
-
-                const status = m.status || 'por_jugar';
-                const statusCfg = getStatusConfig(status);
-                const predLocked = isPredDisabled(status);
-                const realLocked = isRealDisabled(status);
-                
-                return `
-                  <tr class="match-row-${status}">
-                    <td style="position: sticky; left: 0; background: var(--white); z-index: 10; border-right: 1px solid var(--border);">
-                      <div style="display:flex; flex-direction:column; gap: 0.2rem;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                          <span style="font-size:0.65rem; color:var(--light); font-weight:600; letter-spacing:0.05em;">#${m.match_number} · ${m.group_stage_round || m.phase}</span>
-                          <button class="btn-cycle-status ${statusCfg.cssClass}" data-match-id="${m.id}" data-status="${status}" style="background:none; border:none; cursor:pointer; padding:0; opacity:0.9; transition:opacity 0.2s;" title="Cambiar estado del partido">
-                            <span class="match-status-badge ${statusCfg.cssClass}">${statusCfg.label}</span>
-                          </button>
-                        </div>
-                        <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.85rem; font-weight:500;">
-                          <span style="text-align:right; flex:1;">${m.home_team.name} <span class="flag">${m.home_team.flag_emoji}</span></span>
-                          <span style="padding: 0 0.5rem; color: var(--light);">vs</span>
-                          <span style="flex:1;"><span class="flag">${m.away_team.flag_emoji}</span> ${m.away_team.name}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td style="text-align: center; background: var(--bg-subtle);">
-                      <div style="display:flex; justify-content:center; gap:0.2rem;">
-                        <input type="number" min="0" class="gen-real-input" data-match-id="${m.id}" data-team="home" value="${m.home_score !== null ? m.home_score : ''}" placeholder="-" ${realLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-weight:700; font-size:0.85rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.8); outline:none; transition:all 0.2s; ${realLocked ? 'opacity:0.6; cursor:not-allowed;' : ''}">
-                        <span style="display:flex; align-items:center; font-weight:700;">-</span>
-                        <input type="number" min="0" class="gen-real-input" data-match-id="${m.id}" data-team="away" value="${m.away_score !== null ? m.away_score : ''}" placeholder="-" ${realLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-weight:700; font-size:0.85rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.8); outline:none; transition:all 0.2s; ${realLocked ? 'opacity:0.6; cursor:not-allowed;' : ''}">
-                      </div>
-                    </td>
-                    ${users.map(u => {
-                      const p = predMap[m.id]?.[u.id];
-                      const cellClass = getPredCellStyle(m, p);
-                      
-                      // Compute live/final points
-                      let pointsDisplay = '';
-                      if ((status === 'en_juego' || status === 'terminado') && p) {
-                        const pts = computeLivePoints(p, m);
-                        if (pts !== null && pts > 0) {
-                          pointsDisplay = `<div style="font-size:0.6rem; margin-top:0.15rem; color:var(--medium);">+${pts} pts</div>`;
-                        }
-                      }
-
-                      return `
-                        <td style="text-align: center;">
-                          <div class="pred-cell ${cellClass}" style="display:flex; justify-content:center; gap:0.2rem; padding: 0.25rem;">
-                            <input type="number" min="0" class="gen-pred-input" data-match-id="${m.id}" data-user-id="${u.id}" data-team="home" value="${p ? p.home_score : ''}" ${predLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-size:0.8rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.5); outline:none; transition:all 0.2s; ${predLocked ? 'opacity:0.7; cursor:not-allowed;' : ''}">
-                            <span style="display:flex; align-items:center;">-</span>
-                            <input type="number" min="0" class="gen-pred-input" data-match-id="${m.id}" data-user-id="${u.id}" data-team="away" value="${p ? p.away_score : ''}" ${predLocked ? 'disabled' : ''} style="width:28px; height:24px; text-align:center; font-size:0.8rem; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,0.5); outline:none; transition:all 0.2s; ${predLocked ? 'opacity:0.7; cursor:not-allowed;' : ''}">
-                          </div>
-                          ${pointsDisplay}
-                        </td>
-                      `;
-                    }).join('')}
-                  </tr>
-                `;
-              }).join('')}
+            <tbody id="gen-tbody-grupos">
+              ${renderTableRows(groupMatches, false)}
+            </tbody>
+            <tbody id="gen-tbody-eliminatorias" style="display:none;">
+              ${renderTableRows(knockoutMatches, true)}
             </tbody>
           </table>
         </div>
@@ -197,97 +241,118 @@ export async function renderGeneral() {
 }
 
 export function bindGeneralEvents() {
-  // Prediction inputs — only active for por_jugar
-  document.querySelectorAll('.gen-pred-input:not([disabled])').forEach(input => {
-    input.addEventListener('focus', (e) => {
-      e.target.style.border = '1px solid var(--black)';
-      e.target.style.background = 'var(--white)';
+  document.querySelectorAll('#general-tabs .tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#general-tabs .tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const tabName = tab.dataset.tab;
+      document.getElementById('gen-tbody-grupos').style.display = tabName === 'grupos' ? '' : 'none';
+      document.getElementById('gen-tbody-eliminatorias').style.display = tabName === 'eliminatorias' ? '' : 'none';
     });
-    
-    input.addEventListener('blur', (e) => {
-      e.target.style.border = '1px solid transparent';
-      e.target.style.background = 'rgba(255,255,255,0.5)';
-    });
+  });
 
+  const savePrediction = async (userId, matchId, homeScore, awayScore, mode) => {
+    if (isNaN(homeScore) || isNaN(awayScore)) return null;
+    
+    // Validaciones
+    if (homeScore !== awayScore && mode !== '90 minutos' && mode !== null) {
+      // If someone chooses Alargue/Penales but scores are different, 
+      // let's force mode to '90 minutos' or just save it but it's invalid according to rules.
+      // But we just save it.
+    }
+
+    const payload = {
+      user_id: userId,
+      match_id: matchId,
+      home_score: homeScore,
+      away_score: awayScore,
+    };
+    if (mode !== undefined && mode !== null) {
+      payload.mode = mode;
+    }
+
+    return await supabase
+      .from('predictions')
+      .upsert(payload, { onConflict: 'user_id,match_id' });
+  };
+
+  const getRowInputs = (e, prefix) => {
+    const row = e.target.closest('td');
+    const homeInput = row.querySelector('[data-team="home"]');
+    const awayInput = row.querySelector('[data-team="away"]');
+    const modeSelect = row.querySelector('.' + prefix + '-mode');
+    return { homeInput, awayInput, modeSelect };
+  };
+
+
+  // Prediction inputs
+  document.querySelectorAll('.gen-pred-input:not([disabled]), .gen-pred-mode:not([disabled])').forEach(input => {
     input.addEventListener('change', async (e) => {
       const matchId = parseInt(e.target.dataset.matchId);
       const userId = e.target.dataset.userId;
       
-      const row = e.target.closest('td');
-      const homeInput = row.querySelector('[data-team="home"]');
-      const awayInput = row.querySelector('[data-team="away"]');
-      
+      const { homeInput, awayInput, modeSelect } = getRowInputs(e, 'gen-pred');
       const homeScore = parseInt(homeInput.value);
       const awayScore = parseInt(awayInput.value);
+      const mode = modeSelect ? modeSelect.value : null;
       
-      if (isNaN(homeScore) || isNaN(awayScore)) {
-        return; // wait until both are filled
-      }
+      if (isNaN(homeScore) || isNaN(awayScore)) return;
+      if (modeSelect && mode === "") return;
       
-      const { error } = await supabase
-        .from('predictions')
-        .upsert({
-          user_id: userId,
-          match_id: matchId,
-          home_score: homeScore,
-          away_score: awayScore,
-        }, { onConflict: 'user_id,match_id' });
-        
+      const { error } = await savePrediction(userId, matchId, homeScore, awayScore, mode);
       if (!error) {
-        homeInput.style.background = '#dcfce7'; // green flash
+        homeInput.style.background = '#dcfce7'; 
         awayInput.style.background = '#dcfce7';
+        if (modeSelect) modeSelect.style.background = '#dcfce7';
         setTimeout(() => {
           homeInput.style.background = 'rgba(255,255,255,0.5)';
           awayInput.style.background = 'rgba(255,255,255,0.5)';
+          if (modeSelect) modeSelect.style.background = 'rgba(255,255,255,0.5)';
         }, 800);
       }
     });
   });
 
-  // Real score inputs — only active for por_jugar and en_juego
-  document.querySelectorAll('.gen-real-input:not([disabled])').forEach(input => {
-    input.addEventListener('focus', (e) => {
-      e.target.style.border = '1px solid var(--black)';
-      e.target.style.background = 'var(--white)';
-    });
-    
-    input.addEventListener('blur', (e) => {
-      e.target.style.border = '1px solid transparent';
-      e.target.style.background = 'rgba(255,255,255,0.8)';
-    });
-
+  // Real score inputs
+  document.querySelectorAll('.gen-real-input:not([disabled]), .gen-real-mode:not([disabled])').forEach(input => {
     input.addEventListener('change', async (e) => {
       const matchId = parseInt(e.target.dataset.matchId);
-      const row = e.target.closest('td');
-      const homeInput = row.querySelector('[data-team="home"]');
-      const awayInput = row.querySelector('[data-team="away"]');
+      const { homeInput, awayInput, modeSelect } = getRowInputs(e, 'gen-real');
       
       const homeScore = parseInt(homeInput.value);
       const awayScore = parseInt(awayInput.value);
+      const mode = modeSelect ? modeSelect.value : null;
       
       const isComplete = !isNaN(homeScore) && !isNaN(awayScore);
       
-      // Update the match in supabase
+      const updateData = {
+        home_score: isComplete ? homeScore : null,
+        away_score: isComplete ? awayScore : null,
+      };
+      if (modeSelect) {
+        updateData.mode = mode || null;
+      }
+      
       const { error } = await supabase
         .from('matches')
-        .update({
-          home_score: isComplete ? homeScore : null,
-          away_score: isComplete ? awayScore : null,
-        })
+        .update(updateData)
         .eq('id', matchId);
         
       if (!error) {
-        homeInput.style.background = '#fef3c7'; // yellow flash
+        homeInput.style.background = '#fef3c7'; 
         awayInput.style.background = '#fef3c7';
+        if (modeSelect) modeSelect.style.background = '#fef3c7';
         setTimeout(() => {
           homeInput.style.background = 'rgba(255,255,255,0.8)';
           awayInput.style.background = 'rgba(255,255,255,0.8)';
+          if (modeSelect) modeSelect.style.background = 'rgba(255,255,255,0.8)';
         }, 800);
       }
     });
   });
 
-  // Cycle status: por_jugar -> en_juego -> terminado -> por_jugar
+  // Cycle status
+  // Cycle status
   document.querySelectorAll('.btn-cycle-status').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const button = e.currentTarget;
