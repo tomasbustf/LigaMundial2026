@@ -60,6 +60,36 @@ export async function renderLeaderboard(currentUserId) {
     `;
   }).join('') || '';
 
+  const prizeParticipants = ['tomas', 'tomás', 'edu', 'danko', 'basti', 'dasu', 'ukid', 'sidkar', 'martin', 'martín'];
+  const prizeLeaderboard = leaderboard?.filter(entry => 
+    prizeParticipants.includes(entry.name.toLowerCase().trim())
+  ) || [];
+
+  const prizeRows = prizeLeaderboard.map((entry, i) => {
+    const rank = i + 1;
+    const isFirst = rank === 1;
+    const isCurrentUser = entry.id === currentUserId;
+    
+    const nameStyle = isFirst ? 'font-size: 1.2rem; color: var(--primary, #ff007a); font-weight: 700;' : 'font-weight: 600;';
+    const pointsStyle = isFirst ? 'font-size: 1.6rem; color: var(--primary, #ff007a); font-weight: 800;' : 'font-size: 1.1rem; font-weight: 600;';
+    const rowClass = isCurrentUser ? 'highlight' : '';
+
+    return `
+      <tr class="${rowClass}">
+        <td class="rank-cell" style="${isFirst ? 'font-size: 1.5rem;' : ''}">${rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank}</td>
+        <td>
+          <div class="player-cell">
+            <div class="user-avatar" style="background:${entry.avatar_color}; ${isFirst ? 'width: 44px; height: 44px; font-size: 1.2rem;' : ''}">${entry.name.charAt(0)}</div>
+            <div style="${nameStyle}">${entry.name}</div>
+          </div>
+        </td>
+        <td class="text-right">
+          <span style="${pointsStyle}">${entry.total_points}</span>
+        </td>
+      </tr>
+    `;
+  }).join('') || `<tr><td colspan="3" class="text-center" style="padding: 2rem;">No hay datos</td></tr>`;
+
   // Top stats
   const leader = leaderboard?.[0];
   const mostExact = leaderboard?.reduce((a, b) => (b.exact_scores > a.exact_scores ? b : a), leaderboard[0]);
@@ -119,6 +149,28 @@ export async function renderLeaderboard(currentUserId) {
           </table>
         </div>
       </div>
+
+      <div class="page-header" style="margin-top: 3.5rem; text-align: center;">
+        <h2>💸 Premio 40.000</h2>
+      </div>
+
+      <div class="card" style="max-width: 500px; margin: 0 auto; margin-bottom: 2rem;">
+        <div class="table-wrap">
+          <table style="width: 100%;">
+            <thead>
+              <tr>
+                <th style="width: 60px;">#</th>
+                <th>Jugador</th>
+                <th class="text-right">Puntos</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${prizeRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   `;
 }
