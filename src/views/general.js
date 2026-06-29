@@ -104,8 +104,12 @@ export async function renderGeneral() {
   const isPredDisabled = (status) => status === 'en_juego' || status === 'terminado';
   const isRealDisabled = (status) => status === 'terminado';
 
-  const groupMatches = matches.filter(m => m.phase === 'Grupos');
-  const knockoutMatches = matches.filter(m => m.phase !== 'Grupos');
+  const gruposMatches = matches.filter(m => m.phase === 'Grupos');
+  const dieciseisavosMatches = matches.filter(m => m.phase === 'Dieciseisavos');
+  const octavosMatches = matches.filter(m => m.phase === 'Octavos');
+  const cuartosMatches = matches.filter(m => m.phase === 'Cuartos');
+  const semisMatches = matches.filter(m => m.phase === 'Semifinal');
+  const finalMatches = matches.filter(m => m.phase === 'Final' || m.phase === 'Tercer Puesto');
 
   function renderTableRows(matchList, isKnockout = false) {
     return matchList.map(m => {
@@ -216,9 +220,13 @@ export async function renderGeneral() {
         <span class="subtitle">Todas las predicciones al estilo Excel</span>
       </div>
 
-      <div class="tabs" id="general-tabs" style="margin-bottom: 1rem;">
-        <button class="tab active" data-tab="grupos">Fase de Grupos</button>
-        <button class="tab" data-tab="eliminatorias">Fase Eliminatoria</button>
+      <div class="tabs" id="general-tabs" style="margin-bottom: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+        <button class="tab" data-tab="grupos">Grupos</button>
+        <button class="tab active" data-tab="dieciseisavos">16vos</button>
+        <button class="tab locked" data-tab="octavos" style="opacity:0.6; cursor:not-allowed;" title="Aún no disponible" disabled>8vos 🔒</button>
+        <button class="tab locked" data-tab="cuartos" style="opacity:0.6; cursor:not-allowed;" title="Aún no disponible" disabled>4tos 🔒</button>
+        <button class="tab locked" data-tab="semis" style="opacity:0.6; cursor:not-allowed;" title="Aún no disponible" disabled>Semis 🔒</button>
+        <button class="tab locked" data-tab="final" style="opacity:0.6; cursor:not-allowed;" title="Aún no disponible" disabled>Final 🔒</button>
       </div>
       
       <div class="card" style="padding: 0; overflow: hidden;">
@@ -238,11 +246,23 @@ export async function renderGeneral() {
                 `).join('')}
               </tr>
             </thead>
-            <tbody id="gen-tbody-grupos">
-              ${renderTableRows(groupMatches, false)}
+            <tbody id="gen-tbody-grupos" style="display:none;">
+              ${renderTableRows(gruposMatches, false)}
             </tbody>
-            <tbody id="gen-tbody-eliminatorias" style="display:none;">
-              ${renderTableRows(knockoutMatches, true)}
+            <tbody id="gen-tbody-dieciseisavos">
+              ${renderTableRows(dieciseisavosMatches, true)}
+            </tbody>
+            <tbody id="gen-tbody-octavos" style="display:none;">
+              ${renderTableRows(octavosMatches, true)}
+            </tbody>
+            <tbody id="gen-tbody-cuartos" style="display:none;">
+              ${renderTableRows(cuartosMatches, true)}
+            </tbody>
+            <tbody id="gen-tbody-semis" style="display:none;">
+              ${renderTableRows(semisMatches, true)}
+            </tbody>
+            <tbody id="gen-tbody-final" style="display:none;">
+              ${renderTableRows(finalMatches, true)}
             </tbody>
           </table>
         </div>
@@ -252,13 +272,17 @@ export async function renderGeneral() {
 }
 
 export function bindGeneralEvents() {
-  document.querySelectorAll('#general-tabs .tab').forEach(tab => {
+  document.querySelectorAll('#general-tabs .tab:not(.locked)').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('#general-tabs .tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       const tabName = tab.dataset.tab;
       document.getElementById('gen-tbody-grupos').style.display = tabName === 'grupos' ? '' : 'none';
-      document.getElementById('gen-tbody-eliminatorias').style.display = tabName === 'eliminatorias' ? '' : 'none';
+      document.getElementById('gen-tbody-dieciseisavos').style.display = tabName === 'dieciseisavos' ? '' : 'none';
+      document.getElementById('gen-tbody-octavos').style.display = tabName === 'octavos' ? '' : 'none';
+      document.getElementById('gen-tbody-cuartos').style.display = tabName === 'cuartos' ? '' : 'none';
+      document.getElementById('gen-tbody-semis').style.display = tabName === 'semis' ? '' : 'none';
+      document.getElementById('gen-tbody-final').style.display = tabName === 'final' ? '' : 'none';
     });
   });
 
