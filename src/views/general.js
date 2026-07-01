@@ -80,7 +80,7 @@ export async function renderGeneral() {
   function computeLivePoints(pred, match) {
     if (!pred || pred.home_score === null || pred.away_score === null) return null;
     if (match.home_score === null || match.away_score === null) return null;
-    return calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase, pred.mode, match.mode, pred.advancing_team_id, match.advancing_team_id);
+    return calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase, pred.mode, match.mode, pred.advancing_team_id, match.advancing_team_id, match.home_team_id, match.away_team_id);
   }
 
   // Helper: determine color badge style for a prediction cell
@@ -92,7 +92,7 @@ export async function renderGeneral() {
     if (!pred || pred.home_score === null || pred.away_score === null) return '';
     if (match.home_score === null || match.away_score === null) return '';
 
-    const pts = calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase, pred.mode, match.mode, pred.advancing_team_id, match.advancing_team_id);
+    const pts = calculatePoints(pred.home_score, pred.away_score, match.home_score, match.away_score, match.phase, pred.mode, match.mode, pred.advancing_team_id, match.advancing_team_id, match.home_team_id, match.away_team_id);
     const pointType = getPointType(pts, match.phase);
     
     if (pointType === 'exact') return 'pred-exact';      // Green

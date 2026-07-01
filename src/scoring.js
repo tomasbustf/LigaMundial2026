@@ -18,7 +18,7 @@ const BASE_POINTS = {
   exact_score: 5,
 };
 
-export function calculatePoints(predHome, predAway, realHome, realAway, phase, predMode = null, realMode = null, predAdvancingId = null, realAdvancingId = null) {
+export function calculatePoints(predHome, predAway, realHome, realAway, phase, predMode = null, realMode = null, predAdvancingId = null, realAdvancingId = null, homeTeamId = null, awayTeamId = null) {
   if (realHome === null || realAway === null) return 0;
 
   const multiplier = PHASE_MULTIPLIERS[phase] || 1.0;
@@ -26,15 +26,16 @@ export function calculatePoints(predHome, predAway, realHome, realAway, phase, p
   let pts = 0;
 
   const getWinner = (h, a, adv) => {
-    if (h > a) return 'H';
-    if (h < a) return 'A';
+    if (h > a) return homeTeamId !== null ? homeTeamId : 'H';
+    if (h < a) return awayTeamId !== null ? awayTeamId : 'A';
     return isKnockout ? (adv || 'D') : 'D';
   };
 
   const predWinner = getWinner(predHome, predAway, predAdvancingId);
   const realWinner = getWinner(realHome, realAway, realAdvancingId);
 
-  if (predWinner === realWinner) {
+  // Use loose equality (==) for team IDs in case one is string and other is int
+  if (predWinner == realWinner && predWinner !== 'D') {
     pts += BASE_POINTS.correct_winner; // 2 pts
     
     if (predHome === realHome && predAway === realAway) {

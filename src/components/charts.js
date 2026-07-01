@@ -60,7 +60,7 @@ export async function initPointsChart() {
   const { data: matches } = await supabase
     .from('matches')
     .select(`
-      id, match_number, phase, group_stage_round, home_score, away_score, status,
+      id, match_number, phase, group_stage_round, home_score, away_score, status, mode, advancing_team_id, home_team_id, away_team_id,
       home_team:teams!matches_home_team_id_fkey(name, flag_emoji),
       away_team:teams!matches_away_team_id_fkey(name, flag_emoji)
     `)
@@ -81,7 +81,7 @@ export async function initPointsChart() {
   // Fetch all predictions
   const { data: predictions } = await supabase
     .from('predictions')
-    .select('user_id, match_id, home_score, away_score');
+    .select('user_id, match_id, home_score, away_score, mode, advancing_team_id');
 
   const predMap = {};
   predictions?.forEach(p => {
@@ -106,7 +106,10 @@ export async function initPointsChart() {
         cumulative += calculatePoints(
           pred.home_score, pred.away_score,
           m.home_score, m.away_score,
-          m.phase
+          m.phase,
+          pred.mode, m.mode,
+          pred.advancing_team_id, m.advancing_team_id,
+          m.home_team_id, m.away_team_id
         );
       }
       return cumulative;
