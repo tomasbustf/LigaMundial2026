@@ -5,10 +5,12 @@ import { supabase } from '../supabase.js';
 import { renderPointsChart } from '../components/charts.js';
 
 export async function renderLeaderboard(currentUserId) {
-  const { data: leaderboard } = await supabase
+  const { data: fetchedLeaderboard } = await supabase
     .from('leaderboard')
     .select('*')
     .order('total_points', { ascending: false });
+
+  const leaderboard = fetchedLeaderboard?.filter(u => !u.name.toLowerCase().includes('mati')) || [];
 
   // Fetch special predictions with team/player names
   const { data: specialPreds } = await supabase

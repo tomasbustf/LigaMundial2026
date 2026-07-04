@@ -25,10 +25,12 @@ export async function renderDashboard(userId) {
     .single();
 
   // Fetch leaderboard position
-  const { data: leaderboard } = await supabase
+  const { data: fetchedLeaderboard } = await supabase
     .from('leaderboard')
     .select('*')
     .order('total_points', { ascending: false });
+
+  const leaderboard = fetchedLeaderboard?.filter(u => !u.name.toLowerCase().includes('mati')) || [];
 
   const userRank = leaderboard?.findIndex(l => l.id === userId) + 1 || '-';
   const userData = leaderboard?.find(l => l.id === userId);

@@ -15,7 +15,7 @@ export async function renderGeneral() {
   if (!fetchedUsers || fetchedUsers.length === 0) return `<div class="container page">Sin usuarios</div>`;
 
   // Custom sort: Tomas & Ukid first, ChatGPT & Simon last
-  const users = fetchedUsers.sort((a, b) => {
+  const users = fetchedUsers.filter(u => !u.name.toLowerCase().includes('mati')).sort((a, b) => {
     const getPrio = (name) => {
       const n = name.toLowerCase();
       if (n.includes('tomás') || n.includes('tomas')) return 1;
@@ -222,8 +222,8 @@ export async function renderGeneral() {
 
       <div class="tabs" id="general-tabs" style="margin-bottom: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
         <button class="tab" data-tab="grupos">Grupos</button>
-        <button class="tab active" data-tab="dieciseisavos">16vos</button>
-        <button class="tab locked" data-tab="octavos" style="opacity:0.6; cursor:not-allowed;" title="Aún no disponible" disabled>8vos 🔒</button>
+        <button class="tab" data-tab="dieciseisavos">16vos</button>
+        <button class="tab active" data-tab="octavos">8vos</button>
         <button class="tab locked" data-tab="cuartos" style="opacity:0.6; cursor:not-allowed;" title="Aún no disponible" disabled>4tos 🔒</button>
         <button class="tab locked" data-tab="semis" style="opacity:0.6; cursor:not-allowed;" title="Aún no disponible" disabled>Semis 🔒</button>
         <button class="tab locked" data-tab="final" style="opacity:0.6; cursor:not-allowed;" title="Aún no disponible" disabled>Final 🔒</button>
@@ -249,10 +249,10 @@ export async function renderGeneral() {
             <tbody id="gen-tbody-grupos" style="display:none;">
               ${renderTableRows(gruposMatches, false)}
             </tbody>
-            <tbody id="gen-tbody-dieciseisavos">
+            <tbody id="gen-tbody-dieciseisavos" style="display:none;">
               ${renderTableRows(dieciseisavosMatches, true)}
             </tbody>
-            <tbody id="gen-tbody-octavos" style="display:none;">
+            <tbody id="gen-tbody-octavos">
               ${renderTableRows(octavosMatches, true)}
             </tbody>
             <tbody id="gen-tbody-cuartos" style="display:none;">

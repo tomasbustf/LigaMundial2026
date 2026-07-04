@@ -28,7 +28,7 @@ async function init() {
     .select('*')
     .order('name');
 
-  allUsers = fetchedUsers?.sort((a, b) => {
+  allUsers = fetchedUsers?.filter(u => !u.name.toLowerCase().includes('mati')).sort((a, b) => {
     const getPrio = (name) => {
       const n = name.toLowerCase();
       if (n.includes('tomás') || n.includes('tomas')) return 1;

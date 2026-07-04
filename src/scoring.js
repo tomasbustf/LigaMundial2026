@@ -6,7 +6,7 @@
 const PHASE_MULTIPLIERS = {
   'Grupos': 1.0,
   'Dieciseisavos': 1.0,
-  'Octavos': 1.5,
+  'Octavos': 2.0,
   'Cuartos': 2.0,
   'Semifinal': 3.0,
   'Tercer Puesto': 1.0,

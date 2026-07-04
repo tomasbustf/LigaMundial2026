@@ -33,12 +33,13 @@ export async function initPointsChart() {
   if (!canvas) return;
 
   // Fetch users
-  const { data: users } = await supabase
+  const { data: fetchedUsers } = await supabase
     .from('users')
     .select('id, name, avatar_color')
     .order('name');
 
-  if (!users || users.length === 0) return;
+  if (!fetchedUsers || fetchedUsers.length === 0) return;
+  const users = fetchedUsers.filter(u => !u.name.toLowerCase().includes('mati'));
 
   // Custom sort: Tomas & Ukid first, ChatGPT & Simon last
   users.sort((a, b) => {
