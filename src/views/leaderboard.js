@@ -10,7 +10,7 @@ export async function renderLeaderboard(currentUserId) {
     .select('*')
     .order('total_points', { ascending: false });
 
-  const leaderboard = fetchedLeaderboard?.filter(u => !u.name.toLowerCase().includes('mati')) || [];
+  const leaderboard = fetchedLeaderboard?.filter(u => !u.name.toLowerCase().includes('mati') && !u.name.toLowerCase().includes('efra')) || [];
 
   // Fetch special predictions with team/player names
   const { data: specialPreds } = await supabase

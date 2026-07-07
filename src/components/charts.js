@@ -39,7 +39,7 @@ export async function initPointsChart() {
     .order('name');
 
   if (!fetchedUsers || fetchedUsers.length === 0) return;
-  const users = fetchedUsers.filter(u => !u.name.toLowerCase().includes('mati'));
+  const users = fetchedUsers.filter(u => !u.name.toLowerCase().includes('mati') && !u.name.toLowerCase().includes('efra'));
 
   // Custom sort: Tomas & Ukid first, ChatGPT & Simon last
   users.sort((a, b) => {

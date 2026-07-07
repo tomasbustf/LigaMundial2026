@@ -30,7 +30,7 @@ export async function renderDashboard(userId) {
     .select('*')
     .order('total_points', { ascending: false });
 
-  const leaderboard = fetchedLeaderboard?.filter(u => !u.name.toLowerCase().includes('mati')) || [];
+  const leaderboard = fetchedLeaderboard?.filter(u => !u.name.toLowerCase().includes('mati') && !u.name.toLowerCase().includes('efra')) || [];
 
   const userRank = leaderboard?.findIndex(l => l.id === userId) + 1 || '-';
   const userData = leaderboard?.find(l => l.id === userId);
