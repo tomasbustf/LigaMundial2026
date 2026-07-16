@@ -79,10 +79,11 @@ export async function initPointsChart() {
     return;
   }
 
-  // Fetch all predictions
+  // Fetch all predictions (override default 1000-row limit)
   const { data: predictions } = await supabase
     .from('predictions')
-    .select('user_id, match_id, home_score, away_score, mode, advancing_team_id');
+    .select('user_id, match_id, home_score, away_score, mode, advancing_team_id')
+    .range(0, 9999);
 
   const predMap = {};
   predictions?.forEach(p => {
