@@ -109,7 +109,8 @@ export async function renderGeneral() {
   const octavosMatches = matches.filter(m => m.phase === 'Octavos');
   const cuartosMatches = matches.filter(m => m.phase === 'Cuartos');
   const semisMatches = matches.filter(m => m.phase === 'Semifinal');
-  const finalMatches = matches.filter(m => m.phase === 'Final' || m.phase === 'Tercer Puesto');
+  const tercerPuestoMatches = matches.filter(m => m.phase === 'Tercer Puesto');
+  const finalMatches = matches.filter(m => m.phase === 'Final');
 
   function renderTableRows(matchList, isKnockout = false) {
     return matchList.map(m => {
@@ -225,8 +226,9 @@ export async function renderGeneral() {
         <button class="tab" data-tab="dieciseisavos">16vos</button>
         <button class="tab" data-tab="octavos">8vos</button>
         <button class="tab" data-tab="cuartos">4tos</button>
-        <button class="tab active" data-tab="semis">Semis</button>
-        <button class="tab locked" data-tab="final" style="opacity:0.6; cursor:not-allowed;" title="Aún no disponible" disabled>Final 🔒</button>
+        <button class="tab" data-tab="semis">Semis</button>
+        <button class="tab active" data-tab="tercer-puesto">3er Puesto</button>
+        <button class="tab" data-tab="final">Final</button>
       </div>
       
       <div class="card" style="padding: 0; overflow: hidden;">
@@ -258,8 +260,11 @@ export async function renderGeneral() {
             <tbody id="gen-tbody-cuartos" style="display:none;">
               ${renderTableRows(cuartosMatches, true)}
             </tbody>
-            <tbody id="gen-tbody-semis">
+            <tbody id="gen-tbody-semis" style="display:none;">
               ${renderTableRows(semisMatches, true)}
+            </tbody>
+            <tbody id="gen-tbody-tercer-puesto">
+              ${renderTableRows(tercerPuestoMatches, true)}
             </tbody>
             <tbody id="gen-tbody-final" style="display:none;">
               ${renderTableRows(finalMatches, true)}
@@ -282,6 +287,7 @@ export function bindGeneralEvents() {
       document.getElementById('gen-tbody-octavos').style.display = tabName === 'octavos' ? '' : 'none';
       document.getElementById('gen-tbody-cuartos').style.display = tabName === 'cuartos' ? '' : 'none';
       document.getElementById('gen-tbody-semis').style.display = tabName === 'semis' ? '' : 'none';
+      document.getElementById('gen-tbody-tercer-puesto').style.display = tabName === 'tercer-puesto' ? '' : 'none';
       document.getElementById('gen-tbody-final').style.display = tabName === 'final' ? '' : 'none';
     });
   });
