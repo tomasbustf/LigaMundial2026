@@ -79,14 +79,25 @@ export async function initPointsChart() {
     return;
   }
 
-  // Fetch all predictions (override default 1000-row limit)
-  const { data: predictions } = await supabase
-    .from('predictions')
-    .select('user_id, match_id, home_score, away_score, mode, advancing_team_id')
-    .range(0, 9999);
+  // Fetch all predictions (paginated to bypass 1000-row limit)
+  let predictions = [];
+  let page = 0;
+  const pageSize = 1000;
+  while (true) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    const { data: batch } = await supabase
+      .from('predictions')
+      .select('user_id, match_id, home_score, away_score, mode, advancing_team_id')
+      .range(from, to);
+    if (!batch || batch.length === 0) break;
+    predictions = predictions.concat(batch);
+    if (batch.length < pageSize) break;
+    page++;
+  }
 
   const predMap = {};
-  predictions?.forEach(p => {
+  predictions.forEach(p => {
     if (!predMap[p.match_id]) predMap[p.match_id] = {};
     predMap[p.match_id][p.user_id] = p;
   });
