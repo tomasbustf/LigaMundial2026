@@ -173,6 +173,106 @@ export async function renderLeaderboard(currentUserId) {
         </div>
       </div>
 
+      <div class="page-header" style="margin-top: 3.5rem; text-align: center;">
+        <h2>⚽ Tabla de Goleadores</h2>
+        <span class="subtitle">Máximos anotadores del Mundial 2026 · El goleador otorga <strong>10 pts</strong> bonus</span>
+      </div>
+
+      ${renderTopScorers(specialMap, leaderboard)}
+
+    </div>
+  `;
+}
+
+/**
+ * Renders the top scorers table for the World Cup
+ * Shows real tournament scorers and which participants predicted them
+ */
+function renderTopScorers(specialMap, leaderboard) {
+  const scorers = [
+    { name: 'Kylian Mbappé', country: 'Francia', flag: '🇫🇷', goals: 10 },
+    { name: 'Lionel Messi', country: 'Argentina', flag: '🇦🇷', goals: 8 },
+    { name: 'Jude Bellingham', country: 'Inglaterra', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', goals: 7 },
+    { name: 'Erling Haaland', country: 'Noruega', flag: '🇳🇴', goals: 7 },
+    { name: 'Ousmane Dembélé', country: 'Francia', flag: '🇫🇷', goals: 6 },
+    { name: 'Harry Kane', country: 'Inglaterra', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', goals: 6 },
+    { name: 'Mikel Oyarzabal', country: 'España', flag: '🇪🇸', goals: 5 },
+  ];
+
+  // Map who predicted which scorer (normalize names for matching)
+  const normalize = (n) => n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  const scorerRows = scorers.map((s, i) => {
+    const rank = i + 1;
+    const isLeader = rank === 1;
+
+    // Find which participants predicted this scorer
+    const predictedBy = [];
+    const scorerLastName = s.name.split(' ').pop();
+    for (const entry of leaderboard) {
+      const sp = specialMap[entry.id];
+      if (sp?.scorer?.name && normalize(sp.scorer.name).includes(normalize(scorerLastName))) {
+        predictedBy.push(entry.name);
+      }
+    }
+
+    const predictedBadges = predictedBy.length > 0
+      ? predictedBy.map(name => `<span style="display:inline-block; background: ${isLeader ? 'rgba(34,197,94,0.15)' : 'rgba(99,102,241,0.1)'}; color: ${isLeader ? '#16a34a' : '#6366f1'}; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; margin: 0.1rem;">${name}</span>`).join(' ')
+      : '<span style="color: var(--light); font-size: 0.75rem;">—</span>';
+
+    const rowStyle = isLeader
+      ? 'background: linear-gradient(90deg, rgba(250,204,21,0.08) 0%, rgba(250,204,21,0.02) 100%);'
+      : '';
+
+    const goalsBar = `<div style="display:flex; align-items:center; gap:0.5rem;">
+      <div style="background: ${isLeader ? 'linear-gradient(90deg, #f59e0b, #eab308)' : 'var(--primary)'}; height: 6px; border-radius: 3px; width: ${(s.goals / scorers[0].goals) * 100}%; min-width: 8px; transition: width 0.3s;"></div>
+      <span style="font-weight: 700; font-size: 0.9rem; ${isLeader ? 'color: #d97706;' : ''}">${s.goals}</span>
+    </div>`;
+
+    return `
+      <tr style="${rowStyle}">
+        <td class="rank-cell" style="${isLeader ? 'font-size:1.2rem;' : ''}">
+          ${isLeader ? '👑' : rank}
+        </td>
+        <td>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span style="font-size:1.2rem;">${s.flag}</span>
+            <div>
+              <div style="font-weight:600; ${isLeader ? 'font-size:1.05rem;' : ''}">${s.name}</div>
+              <div style="font-size:0.7rem; color:var(--light);">${s.country}</div>
+            </div>
+          </div>
+        </td>
+        <td style="min-width: 120px;">
+          ${goalsBar}
+        </td>
+        <td style="text-align:center;">
+          ${predictedBadges}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="card" style="max-width: 700px; margin: 0 auto; margin-bottom: 2rem;">
+      <div class="table-wrap">
+        <table style="width: 100%;">
+          <thead>
+            <tr>
+              <th style="width: 50px;">#</th>
+              <th>Jugador</th>
+              <th>Goles</th>
+              <th style="text-align:center;">¿Quién lo eligió?</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${scorerRows}
+          </tbody>
+        </table>
+      </div>
+      <div style="text-align:center; padding: 0.75rem 1rem; border-top: 1px solid var(--border); font-size: 0.78rem; color: var(--light);">
+        🏅 El que acierte al goleador del torneo suma <strong style="color: var(--dark);">+10 puntos</strong> bonus
+      </div>
     </div>
   `;
 }

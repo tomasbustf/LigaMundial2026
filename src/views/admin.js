@@ -1,9 +1,24 @@
 /**
  * Admin Panel — Manage results, multipliers, and recalculate points
+ * TOURNAMENT IS FINISHED — Admin panel is locked
  */
 import { supabase } from '../supabase.js';
 
+// Tournament is finished — all editing is locked
+const TOURNAMENT_FINISHED = true;
+
 export async function renderAdmin(userId) {
+  if (TOURNAMENT_FINISHED) {
+    return `
+      <div class="container page">
+        <div class="empty-state">
+          <div class="icon">🏆</div>
+          <h3>¡El Mundial 2026 ha terminado!</h3>
+          <p>España campeón del mundo 🇪🇸 · Mbappé goleador ⚽<br>El panel de administración está bloqueado.</p>
+        </div>
+      </div>
+    `;
+  }
   // Check if user is admin
   const { data: user } = await supabase
     .from('users')

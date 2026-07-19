@@ -6,6 +6,9 @@
 import { supabase } from '../supabase.js';
 import { calculatePoints, getPointType } from '../scoring.js';
 
+// Tournament is finished — all editing is locked
+const TOURNAMENT_FINISHED = true;
+
 export async function renderGeneral() {
   const { data: fetchedUsers } = await supabase
     .from('users')
@@ -113,8 +116,8 @@ export async function renderGeneral() {
     return 'pred-miss';                                    // Red
   }
 
-  const isPredDisabled = (status) => status === 'en_juego' || status === 'terminado';
-  const isRealDisabled = (status) => status === 'terminado';
+  const isPredDisabled = (status) => TOURNAMENT_FINISHED || status === 'en_juego' || status === 'terminado';
+  const isRealDisabled = (status) => TOURNAMENT_FINISHED || status === 'terminado';
 
   const gruposMatches = matches.filter(m => m.phase === 'Grupos');
   const dieciseisavosMatches = matches.filter(m => m.phase === 'Dieciseisavos');
@@ -157,9 +160,7 @@ export async function renderGeneral() {
             <div style="display:flex; flex-direction:column; gap: 0.2rem;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span style="font-size:0.65rem; color:var(--light); font-weight:600; letter-spacing:0.05em;">#${m.match_number} · ${m.group_stage_round || m.phase}</span>
-                <button class="btn-cycle-status ${statusCfg.cssClass}" data-match-id="${m.id}" data-status="${status}" style="background:none; border:none; cursor:pointer; padding:0; opacity:0.9; transition:opacity 0.2s;" title="Cambiar estado del partido">
-                  <span class="match-status-badge ${statusCfg.cssClass}">${statusCfg.label}</span>
-                </button>
+                ${TOURNAMENT_FINISHED ? `<span class="match-status-badge ${statusCfg.cssClass}">${statusCfg.label}</span>` : `<button class="btn-cycle-status ${statusCfg.cssClass}" data-match-id="${m.id}" data-status="${status}" style="background:none; border:none; cursor:pointer; padding:0; opacity:0.9; transition:opacity 0.2s;" title="Cambiar estado del partido"><span class="match-status-badge ${statusCfg.cssClass}">${statusCfg.label}</span></button>`}
               </div>
               <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.85rem; font-weight:500;">
                 <span style="text-align:right; flex:1;">${m.home_team.name} <span class="flag">${m.home_team.flag_emoji}</span></span>
