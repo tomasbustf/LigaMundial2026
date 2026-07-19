@@ -239,8 +239,8 @@ export async function renderGeneral() {
         <button class="tab" data-tab="octavos">8vos</button>
         <button class="tab" data-tab="cuartos">4tos</button>
         <button class="tab" data-tab="semis">Semis</button>
-        <button class="tab active" data-tab="tercer-puesto">3er Puesto</button>
-        <button class="tab" data-tab="final">Final</button>
+        <button class="tab" data-tab="tercer-puesto">3er Puesto</button>
+        <button class="tab active" data-tab="final">Final</button>
       </div>
       
       <div class="card" style="padding: 0; overflow: hidden;">
@@ -275,10 +275,10 @@ export async function renderGeneral() {
             <tbody id="gen-tbody-semis" style="display:none;">
               ${renderTableRows(semisMatches, true)}
             </tbody>
-            <tbody id="gen-tbody-tercer-puesto">
+            <tbody id="gen-tbody-tercer-puesto" style="display:none;">
               ${renderTableRows(tercerPuestoMatches, true)}
             </tbody>
-            <tbody id="gen-tbody-final" style="display:none;">
+            <tbody id="gen-tbody-final">
               ${renderTableRows(finalMatches, true)}
             </tbody>
           </table>
